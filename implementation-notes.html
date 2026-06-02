@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>monad-mcp — implementation notes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; max-width: 800px; margin: 2.5rem auto; padding: 0 1.25rem; line-height: 1.55; }
+    h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+    h2 { margin-top: 2rem; font-size: 1.25rem; border-bottom: 1px solid #8884; padding-bottom: 0.3rem; }
+    h3 { margin-top: 1.4rem; font-size: 1.05rem; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #8881; padding: 0 0.25rem; border-radius: 3px; font-size: 0.9em; }
+    pre { background: #8881; padding: 0.75rem; border-radius: 6px; overflow-x: auto; }
+    .meta { color: #888; font-size: 0.9rem; }
+    .tag { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; margin-right: 0.4rem; }
+    .tag-decision { background: #4a90e244; color: #4a90e2; }
+    .tag-deviation { background: #ff9f4344; color: #ff9f43; }
+    .tag-tradeoff { background: #a259ff44; color: #a259ff; }
+    .tag-open { background: #ff4d4d44; color: #ff4d4d; }
+    ul { padding-left: 1.4rem; }
+    li { margin-bottom: 0.3rem; }
+  </style>
+</head>
+<body>
+  <h1>monad-mcp — implementation notes</h1>
+  <p class="meta">Spec: build a Monad MCP server inspired by Base MCP, with Privy as the wallet provider. Captured during the initial build session.</p>
+
+  <h2>1. Design decisions</h2>
+
+  <h3><span class="tag tag-decision">decision</span>Privy <code>@privy-io/node</code> instead of the deprecated <code>@privy-io/server-auth</code></h3>
+  <p>npm install warned that <code>@privy-io/server-auth</code> is deprecated in favor of <code>@privy-io/node</code>. Swapped immediately. The new SDK exposes services via <code>client.wallets().ethereum().sendTransaction(walletId, ...)</code> rather than the old <code>client.ethereum().sendTransaction</code> shape. Adjusted <code>PrivyAuthBridge.sendTransaction</code> accordingly.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Static SPKI key for JWT verification, JWKS fallback</h3>
+  <p>Privy's <code>verifyAccessToken</code> accepts either a PEM-encoded ES256 public key (fastest, no network call) or a JWKS getter. The SDK ships <code>createPrivyAppJWKS</code> but doesn't re-export it from the package root — and the package's <code>"exports"</code> map blocks deep imports. I use <code>jose.createRemoteJWKSet</code> directly as the fallback when <code>PRIVY_VERIFICATION_KEY</code> is unset. Users get the key from the Privy dashboard.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Stateless Streamable HTTP transport</h3>
+  <p>Each <code>POST /mcp</code> request creates its own logical session; auth comes from the bearer token each time. Avoids session-store complexity. If we later use the experimental tool-tasks API for long-running tools, we'd flip to stateful (with <code>sessionIdGenerator</code> set).</p>
+
+  <h3><span class="tag tag-decision">decision</span>Server-side <code>sendTransaction</code> for the approval submit path</h3>
+  <p>Two ways to wire approval signing: (a) browser-first via Privy's web SDK in the approval page (key stays in browser session), or (b) server-side via Privy's <code>sendTransaction</code> after we verify the bearer. I picked (b) for v1 — no Privy web SDK bundle to ship, no need for a frontend build step. The price is one more network hop and slightly broader trust in our server. Phase 2 swap to (a) is non-breaking — same approval URL.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Split <code>runTool</code> from <code>registerTool</code></h3>
+  <p>Initial design had a single <code>registerTool</code> that called the MCP SDK's <code>mcp.registerTool</code> with a wrapped handler. To unit-test the wrapper logic (auth gating, network resolution, zod validation, error formatting) without spinning up a transport, I factored the wrapper into a plain async function <code>runTool(def, args, server, authInfo)</code>. <code>registerTool</code> is now a 3-line shim. Tests call <code>runTool</code> directly. Net win for test surface area.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Plugins as static imports, not dynamic discovery</h3>
+  <p>Base MCP's plugin guide describes a markdown-spec approach. For a TypeScript-first server, static imports give better type safety, simpler bundling, and trivial registration. If we ever want third parties to ship plugins as separate npm packages, the <code>SkillPlugin</code> interface is already designed for it.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Uniswap addresses are env-driven, default to <code>null</code></h3>
+  <p>I don't have verified Uniswap v3 contract addresses for Monad in this build session. Rather than ship guessed addresses that could route funds to the wrong place, the plugin reads addresses from <code>UNISWAP_*_QUOTER_V2</code> and <code>UNISWAP_*_SWAP_ROUTER_02</code> env vars. If unset, write tools fail loud with a configuration error; read tools return a clear "not configured" message.</p>
+
+  <h2>2. Deviations from the spec</h2>
+
+  <h3><span class="tag tag-deviation">deviation</span><code>get_transaction_history</code> only returns ERC-20 Transfer events</h3>
+  <p>Spec said "view transaction history" matching Base MCP. Without a stable Monad block-explorer API I scoped this to ERC-20 Transfer event logs over a bounded block range (default 5k blocks). The response always includes an explorer URL for the authoritative full history. To upgrade later: integrate Monad's explorer API or use Envio/Goldsky-style indexed data.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span>Approval page does not embed Privy web SDK</h3>
+  <p>The HTML page renders the tx summary, asset diff, and approve/reject buttons. On approve, it POSTs to the server, which does the signing via Privy server SDK. The original architecture sketch described a browser-side Privy web SDK login + sign. Deferred to Phase 2 — current path works headless, easier to test, and the public surface (URL contract) doesn't change.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span>OAuth 2.1 metadata advertises Privy as the AS</h3>
+  <p>The protected-resource metadata document points clients at <code>https://auth.privy.io</code> rather than running our own AS. Aligned with how MCP OAuth 2.1 is meant to compose with existing identity providers.</p>
+
+  <h2>3. Tradeoffs considered</h2>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>WalletConnect vs. embedded wallet</h3>
+  <p>Earlier discussion: should the agent talk to the user's existing wallet (MetaMask/Rabby via WalletConnect) or to a Privy embedded wallet? Picked embedded wallet to match Base MCP's UX — one-click approval URL, no separate wallet install required, hosted approval page mirrors Base Account's flow. WalletConnect could be added as a separate auth strategy if needed.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Memory store vs. Postgres for stored requests</h3>
+  <p>Picked in-memory for v1 — single-process dev ergonomics. The <code>RequestStore</code> interface is the swap-in point. Production multi-replica deployment will need Postgres (or Redis); the public tool surface doesn't change.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Auto-expire on read vs. background sweep</h3>
+  <p>Memory store expires requests lazily on <code>get()</code>. Fine for memory pressure in dev. Production should add a background sweep that calls <code>markExpired</code> to clean up the store and emit analytics events.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Quote sweep on every swap</h3>
+  <p>The Uniswap swap tool re-sweeps all fee tiers if <code>fee</code> isn't passed. That's 4 quoter calls per swap. Faster: keep a tier cache per token pair (TTL ~30s). Skipped for v1 — premature optimization on a low-call-rate path.</p>
+
+  <h2>4. Open questions</h2>
+
+  <h3><span class="tag tag-open">open</span>Canonical Uniswap addresses on Monad</h3>
+  <p>Need to verify the QuoterV2 + SwapRouter02 addresses against the Uniswap deployments page. The plugin won't function until these are supplied via env. I left ENV_KEYS scaffold ready and documented the requirement in README + ARCHITECTURE.</p>
+
+  <h3><span class="tag tag-open">open</span>Wallet creation flow</h3>
+  <p>Privy users may not have an Ethereum embedded wallet yet (only social login). The current code throws <code>WalletNotFoundError</code> in that case. Consider exposing a <code>create_wallet</code> tool (or auto-create on first auth) that calls <code>client.users()._get</code> → <code>client.wallets().create()</code>. Need to check whether the agent should drive that or the approval page handles it on first visit.</p>
+
+  <h3><span class="tag tag-open">open</span>Privy <code>caip2</code> string format</h3>
+  <p>I'm passing <code>"eip155:143"</code> / <code>"eip155:10143"</code> to <code>sendTransaction</code>. The Privy node SDK's request type isn't fully reified for our use case — I cast at the boundary. Worth a quick e2e test on testnet to confirm acceptance before mainnet.</p>
+
+  <h3><span class="tag tag-open">open</span>Streamable HTTP + session ID</h3>
+  <p>Stateless mode currently means every <code>POST /mcp</code> is independent. Some clients may expect a session-id header. Investigate compatibility with Claude Web specifically; we may need to flip to stateful with a JWT-derived session id.</p>
+
+  <h3><span class="tag tag-open">open</span>Block explorer URL for testnet</h3>
+  <p>I used <code>https://testnet.monadexplorer.com</code> based on the research pass. Verify this resolves; if not, fall back to <code>https://testnet-explorer.monad.xyz</code> or whatever the canonical URL is.</p>
+
+  <h2>5. Phase 3 — making it actually work (this session)</h2>
+
+  <p class="meta">Validation pass against live Monad testnet uncovered two Privy behaviors that don't match the surface impressions of the SDK. Both blocked the first end-to-end attempt; both are now fixed and pinned by an integration test.</p>
+
+  <h3><span class="tag tag-decision">decision</span><code>caip2</code> lives at the top level of the wallets RPC body, not inside <code>params</code></h3>
+  <p>The SDK's <code>EthereumSendTransactionRpcInput</code> declares <code>caip2: AppsAPI.Caip2</code> as a top-level field alongside <code>method</code> and <code>params</code>. My first implementation followed the more intuitive shape — <code>params: { transaction, caip2 }</code> — and Privy rejected with the confusing dual error <em>"caip2 is required"</em> + <em>"params: Unrecognized key(s) in object: 'caip2'"</em>. Once moved up one level, the request validated. Pinned in the integration test so the shape can't drift.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Embedded wallets need an <code>additional_signer</code> attached at creation; there's no retrofit</h3>
+  <p>Privy's user-created embedded wallets (from <code>users().create({wallets: [...]})</code> without further config) are user-owned. The server has no authorization to sign on them — <code>sendTransaction</code> returns <code>"No valid authorization keys or user signing keys available"</code>. The fix: register a P-256 key quorum once, attach it as an <code>additional_signer</code> on the wallet at creation time. <em>Retrofit is not possible</em> — calling <code>wallets()._update</code> to add a signer requires the very signer authorization we're trying to install. The first test wallet (and its 5 MON) became unreachable as a result; we minted a fresh one with the quorum attached and proceeded.</p>
+
+  <h3><span class="tag tag-decision">decision</span>One-time bootstrap script for the auth keypair</h3>
+  <p><code>npm run bootstrap:auth-key</code> generates a P-256 keypair, registers the public key as a Privy key quorum, and prints the env vars to paste into <code>.env</code>. Idempotent — refuses to re-run if the env is already populated. Crucially, the script prints the secrets <em>before</em> any subsequent step that might fail, so a failure halfway through doesn't strand the keypair.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Server signing path uses <code>authorization_context.authorization_private_keys</code></h3>
+  <p>Every wallet operation now includes <code>authorization_context: { authorization_private_keys: [env.PRIVY_AUTHORIZATION_PRIVATE_KEY] }</code>. The Privy SDK signs the request with that key and includes the signature in the <code>privy-authorization-signature</code> header automatically. <code>PrivyAuthBridge.hasServerSigning</code> exposes the readiness check; <code>PrivyAuthBridge.fromConfig</code> reads everything from env.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Pin the discoveries with an integration test</h3>
+  <p>Added <code>tests/integration/transfer.integration.test.ts</code>: runs the same flow as <code>scripts/e2e-transfer.ts</code> but as a vitest suite. Gated on <code>PRIVY_*</code> + <code>MONAD_MCP_E2E_USER_ID</code> + the wallet being funded — describeOrSkip pattern, so unit-test runs (<code>npm test</code>) are unaffected. When credentials are present, it broadcasts a real testnet tx and confirms the receipt. Run it via <code>npm run test:integration</code>.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Funding cost of every "first wallet" iteration</h3>
+  <p>Because we can't retrofit signers, every developer iterating on the bootstrap flow needs a fresh wallet — and a fresh trip to the faucet — for each fresh keypair. For solo dev that's fine; for a team this would warrant a shared dev key quorum so onboarding doesn't re-fund N wallets.</p>
+
+  <h3><span class="tag tag-open">open</span>Recovering stranded user-only wallets</h3>
+  <p>The original test wallet (<code>0x7970…4d77</code>) has 5 MON we can't reach without a user JWT. Three paths to recover: (a) mint a Privy user JWT for that user via a frontend, (b) drain it manually via the dashboard if Privy exposes that, (c) just write it off. Worth confirming the policy before we ever onboard real users.</p>
+
+  <h3><span class="tag tag-open">open</span>Failure semantics of <code>authorization_context</code></h3>
+  <p>If the private key in <code>.env</code> doesn't match the key quorum attached to the wallet, Privy returns the same 401 we saw before. Need to surface that as a distinct error in <code>PrivyAuthBridge.sendTransaction</code> — currently it propagates as a generic <code>AuthenticationError</code> from the SDK.</p>
+
+  <h2>6. Phase 4 — DeFi plugins (this session)</h2>
+
+  <p class="meta">Built four plugins on top of the existing plugin framework: Kintsu (liquid staking), aPriori (liquid staking, async redemption), Morpho (lending), Kuru (CLOB). All write tools auto-route through the session-key grant system for free.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Trust verified addresses, env-overridable</h3>
+  <p>For each protocol I shipped the canonical mainnet addresses as defaults (sourced from monad-crypto/protocols), with env vars to override. Different model from Uniswap (which fail-loud-on-missing) because these protocols have stable canonical singletons that don't churn. Testnet defaults remain null — set per-protocol env vars if you have testnet deployments.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Kintsu and aPriori share shape but not code</h3>
+  <p>Both are MON → LST flows with two-step unstake. Kintsu uses ERC-7535's <code>requestUnlock(shares) → redeem(unlockIndex, receiver)</code> with batched processing. aPriori uses ERC-7540's <code>requestRedeem(shares, controller, owner) → redeem(requestIDs[], receiver)</code> with epoch-based processing. The function signatures differ enough that "abstract them into one plugin" would muddy the boundaries — kept them separate. Their grant integration and approval flow code paths are identical (both call <code>tryExecuteViaGrant</code>, both fall through to <code>store.create</code> on miss), which is the property that mattered.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Morpho takes MarketParams inline, computes id client-side</h3>
+  <p>Morpho Blue identifies markets by <code>id = keccak256(abi.encode(MarketParams))</code>. Two API options: (a) take a market id and look up MarketParams server-side, (b) take MarketParams inline and compute id locally. Picked (b) because: it's stateless (no on-startup market fetch), the agent already has MarketParams from any Morpho discovery flow, and the failure mode is honest ("wrong MarketParams → wrong market" vs. "stale cached id → wrong market"). <code>marketId()</code> in <code>plugins/morpho/market.ts</code> is the one place that does the keccak.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Kuru orders use raw integers, not human numbers</h3>
+  <p>Kuru's <code>addBuyOrder(uint32 price, uint96 size)</code> uses per-market price + size precision exposed by <code>getMarketParams()</code>. Two ways to handle this from an MCP: (a) auto-fetch market params and convert decimal inputs, (b) require callers to pass raw integers and provide <code>kuru_market_params</code> as the converter. Picked (b) — auto-conversion would hide a critical safety property (the agent should KNOW the precision before placing a 100-MON order). Documented the constraint in the tool description.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Plugin network gating happens at registration time</h3>
+  <p>The four new plugins declare <code>networks: ["mainnet"]</code>. <code>registerPlugins</code> skips them at boot when <code>defaultNetwork === "testnet"</code> and logs a warning. This avoids exposing tools that will fail with "not configured" errors on every call. Tradeoff: tools can't be invoked with <code>network: "mainnet"</code> on a testnet-default server because they're not registered at all. If you need both at once, set the server to mainnet and pass <code>network: "testnet"</code> where supported.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Health factors computed off-chain</h3>
+  <p>Morpho's <code>position()</code> view returns shares + collateral. The actual health factor requires the oracle price for the collateral and the LLTV — neither cheap to fetch in a single call. Shipped raw fields; let the agent (or a future helper) compute health from the snapshot. Avoids the silent-staleness problem of cached per-tool health values.</p>
+
+  <h3><span class="tag tag-open">open</span>Active Morpho markets discovery</h3>
+  <p>Morpho's active market set churns weekly. Hardcoding sample markets would be wrong by the time the next person reads this. The intended flow is "agent queries Morpho's GraphQL at <code>api.morpho.org/graphql</code> with <code>chainId: 143</code>, gets current MarketParams, passes them to <code>morpho_supply</code>". A future <code>morpho_list_markets</code> tool that does that GraphQL query server-side would close the loop — worth adding when the Monad market set stabilizes.</p>
+
+  <h3><span class="tag tag-open">open</span>Kuru order book reading</h3>
+  <p><code>getL2Book()</code> returns packed bytes that need protocol-specific decoding. Shipped <code>bestBidAsk()</code> as the cheap read; full L2 decode is on the roadmap. For most agent use cases, best bid/ask + market params is enough to size an order.</p>
+
+  <h3><span class="tag tag-open">open</span>Kintsu / aPriori share price → APY</h3>
+  <p>Neither protocol exposes APY on-chain. Computing it requires sampling <code>convertToAssets(1e18)</code> at two timestamps and annualizing the delta. We could either (a) cache snapshots server-side, (b) read the protocols' off-chain analytics APIs, or (c) make the agent do it. For v1 the <code>position</code> tools expose the snapshot share price — agents can chain two calls themselves if needed.</p>
+
+  <h2>7. Phase 2 additions</h2>
+
+  <h3><span class="tag tag-decision">decision</span>Session-key grants at the MCP layer, not the wallet layer</h3>
+  <p>The clean way to do delegated permissions on Privy is to create a wallet policy (Privy <code>policies()</code> API supports <code>EthereumTransactionCondition</code> + spend-limit aggregations). I chose to track grants <em>at the MCP server layer</em> instead. Reasoning:</p>
+  <ul>
+    <li>One grant store, swap to Postgres/Redis later — same interface.</li>
+    <li>Can pre-flight coverage check before calling Privy at all (avoids spending API quota on calls we'll reject).</li>
+    <li>Same grant shape works with WalletConnect / other wallet providers later.</li>
+    <li>Wallet-layer policies remain available as defense-in-depth (mirror the grant as a Privy policy on activation — wired in a follow-up).</li>
+  </ul>
+  <p>Tradeoff: trust the MCP server's authoritative view of the cap. The wallet itself isn't constrained, so an attacker with server access could bypass the cap by calling Privy directly. The fix is to mirror the grant as a Privy policy — write a future commit.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Native-MON cap only in v1</h3>
+  <p>Grant <code>spendCapWei</code> only tracks native-MON spend. ERC-20 token amounts aren't deducted (would need to decode calldata + apply token-by-token caps). For v1 the workaround is to restrict per-token access via <code>allowed_targets</code> — list only the ERC-20 contracts you trust the agent to interact with. Per-token spend caps are a v2 surface.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Grant activation reuses the stored-request approval flow</h3>
+  <p>Instead of a separate "approve-grant" page, the <code>grant_session_key</code> tool creates a StoredRequest with <code>pluginContext.kind === "grant_activation"</code>. The submit endpoint recognizes the sentinel and calls <code>grants.activate</code> instead of submitting an on-chain tx. One page, two purposes — fewer moving parts.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Atomic charge-then-send with refund on failure</h3>
+  <p>Inside <code>tryExecuteViaGrant</code>: charge the cap <em>first</em>, then call Privy. If Privy submission fails we call <code>refundSpend</code> to roll back. Charge-first avoids a race window where two concurrent agent calls both pass coverage check then both submit. Briefly the cap reads over-charged between charge and refund — acceptable.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span>User access tokens not minted server-side</h3>
+  <p>Privy's node SDK doesn't expose a "mint user JWT" helper for testing. For the e2e script we synthesize an AuthInfo directly (bypassing the OAuth layer) and call <code>runTool</code> in-process. Tests the same code paths the HTTP route does, just without the bearer-verification step. The HTTP/OAuth layer was already smoke-tested separately.</p>
+
+  <h3><span class="tag tag-open">open</span>Mirror grants as Privy policies</h3>
+  <p>Defense-in-depth: when activating a grant, also create a Privy policy that mirrors the cap and call <code>walletsService.update</code> to attach it. On revoke, detach. Means a compromised MCP server can't bypass the user's intent.</p>
+
+  <h3><span class="tag tag-open">open</span>Grant + simulation</h3>
+  <p>Grant coverage today is decided pre-flight. We could go further: simulate the call via Tenderly-equivalent, infer the actual asset deltas, and apply per-token caps based on what the simulation reports. Avoids the "did we just drain the wallet" failure mode.</p>
+
+  <h2>8. What ships in v1</h2>
+  <ul>
+    <li>TypeScript project: tsconfig, vitest, biome, .env.example, LICENSE</li>
+    <li>MCP server: stdio + Streamable HTTP entrypoints, McpServer factory, registerTool/runTool split</li>
+    <li>Monad chain config: mainnet 143 / testnet 10143 with viem clients</li>
+    <li>Privy auth: token verification (static key or JWKS), user → embedded-wallet resolution, server-side sendTransaction</li>
+    <li>OAuth 2.1 metadata: protected-resource + AS endpoints</li>
+    <li>Stored requests: in-memory store with interface for swap-in adapters</li>
+    <li>Approval page: server-rendered HTML with asset diff, approve/reject flow</li>
+    <li>Tools: get_address, get_balance, get_token_balance, get_transaction_history, get_tx_receipt, poll_request, transfer</li>
+    <li>Uniswap plugin: uniswap_quote (best-tier sweep), uniswap_swap (with slippage, grant-routed), approve_erc20</li>
+    <li>User onboarding: create_user (Privy users().create + embedded wallet), whoami (introspection)</li>
+    <li>Session-key system: SessionGrant + MemoryGrantStore, grant_session_key / list_session_keys / revoke_session_key tools, tryExecuteViaGrant routing in transfer + uniswap_swap</li>
+    <li>End-to-end tooling: scripts/create-test-user.ts, scripts/e2e-transfer.ts, scripts/verify-privy.ts, npm scripts to drive them</li>
+    <li>56 unit tests covering chain config, both stores, registry auth gating, every core tool, Uniswap quote, every session-key surface (including refund-on-failure)</li>
+    <li>Server-side wallet authorization: P-256 keypair + Privy key quorum + <code>authorization_context</code> on every wallet RPC; bootstrap script + auto-attach on wallet creation</li>
+    <li>Integration test (<code>tests/integration/transfer.integration.test.ts</code>) that broadcasts a real testnet tx and confirms the receipt, gated on env vars so unit-test runs aren't affected</li>
+    <li>First confirmed mainnet-shape tx on Monad testnet: <code>0xa4de4e6f038ad49cd50813d848e002e4db20bcb9374d857fb0610764d665518b</code> (block 34,682,400)</li>
+    <li>README + ARCHITECTURE + implementation notes (this file)</li>
+  </ul>
+</body>
+</html>
