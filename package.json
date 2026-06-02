@@ -60,6 +60,8 @@
     "format": "biome format --write src tests",
     "e2e:create-user": "node --env-file=.env --import tsx scripts/create-test-user.ts",
     "e2e:transfer": "node --env-file=.env --import tsx scripts/e2e-transfer.ts",
+    "e2e:session-keys": "node --env-file=.env --import tsx scripts/e2e-session-keys.ts",
+    "e2e:stdio": "node --env-file=.env --import tsx scripts/e2e-stdio.ts",
     "verify:privy": "node --env-file=.env --import tsx scripts/verify-privy.ts",
     "bootstrap:auth-key": "node --env-file-if-exists=.env --import tsx scripts/bootstrap-auth-key.ts"
   },
