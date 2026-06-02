@@ -1,0 +1,59 @@
+{
+  "name": "monad-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the Monad blockchain — balances, transfers, swaps, and DeFi skill plugins, with Privy-backed signing.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.10.0"
+  },
+  "bin": {
+    "monad-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./server": "./dist/server.js",
+    "./plugins": "./dist/plugins/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
+    "dev:http": "tsx watch --env-file-if-exists=.env src/server-http.ts",
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "start:http": "node --env-file-if-exists=.env dist/server-http.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "node --env-file-if-exists=.env node_modules/.bin/vitest run --config vitest.integration.config.ts",
+    "lint": "biome check src tests",
+    "lint:fix": "biome check --write src tests",
+    "typecheck": "tsc --noEmit",
+    "format": "biome format --write src tests",
+    "e2e:create-user": "node --env-file=.env --import tsx scripts/create-test-user.ts",
+    "e2e:transfer": "node --env-file=.env --import tsx scripts/e2e-transfer.ts",
+    "verify:privy": "node --env-file=.env --import tsx scripts/verify-privy.ts",
+    "bootstrap:auth-key": "node --env-file-if-exists=.env --import tsx scripts/bootstrap-auth-key.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@privy-io/node": "^0.19.0",
+    "express": "^4.21.2",
+    "pg": "^8.21.0",
+    "viem": "^2.30.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
