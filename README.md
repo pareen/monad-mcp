@@ -6,6 +6,16 @@ Inspired by [Base MCP](https://docs.base.org/ai-agents/quickstart): same shape (
 
 **🌐 Landing page + live read-only demo:** [pareen.github.io/monad-mcp](https://pareen.github.io/monad-mcp) — query real Monad balances in your browser, exactly what the agent sees.
 
+**🔌 Connect it to Claude** — read tools work with zero setup. Either point at the live hosted endpoint:
+
+```bash
+claude mcp add --transport http monad https://monad-mcp.fly.dev/mcp
+```
+
+…or run it locally once it's on npm: `claude mcp add monad -- npx -y monad-mcp`.
+
+See [docs/connect-claude.md](docs/connect-claude.md) for Claude Desktop and unlocking write tools — and [docs/DEPLOY.md](docs/DEPLOY.md) to publish/host it yourself.
+
 ## What's in the box
 
 **Core tools** (work on any address; auth required only where noted):

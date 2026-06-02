@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+.git
+.github
+.env
+.env.local
+*.log
+.DS_Store
+.vscode
+.idea
+site
+docs
+tests
+implementation-notes.html
+.context
