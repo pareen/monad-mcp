@@ -68,7 +68,7 @@ src/
     │   ├── config.ts
     │   ├── tools.ts       # stake / request_unstake / claim_unstake / position
     │   └── index.ts
-    ├── apriori/           # MON → aprMON liquid staking (ERC-7540 async)
+    ├── fastlane/          # MON → shMON liquid staking (shMONAD, ERC-4626 sync)
     │   ├── abi.ts
     │   ├── config.ts
     │   ├── tools.ts       # stake / request_redeem / claim_redeem / position

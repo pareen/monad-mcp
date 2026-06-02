@@ -141,7 +141,7 @@ export const listCanonicalTokensTool: ToolDefinition<typeof listShape> = {
   name: "list_canonical_tokens",
   title: "List canonical Monad tokens",
   description:
-    "Returns the well-known tokens on Monad (MON, WMON, USDC, USDT, AUSD, WETH, sMON, aprMON). " +
+    "Returns the well-known tokens on Monad (MON, WMON, USDC, USDT, AUSD, WETH, sMON, shMON). " +
     "For dynamic discovery (new tokens, memes), use `resolve_token` with a name/symbol query.",
   kind: "read",
   inputSchema: listShape,

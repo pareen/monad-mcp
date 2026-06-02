@@ -61,12 +61,12 @@ const MAINNET: Record<string, TokenInfo> = {
     decimals: 18,
     aliases: ["staked mon", "smon", "kintsu"],
   },
-  aprMON: {
-    symbol: "aprMON",
-    name: "aPriori Staked Monad",
-    address: "0x0c65A0BC65a5D819235B71F554D210D3F80E0852",
+  shMON: {
+    symbol: "shMON",
+    name: "FastLane Staked Monad (shMONAD)",
+    address: "0x1B68626dCa36c7fE922fD2d55E4f631d962dE19c",
     decimals: 18,
-    aliases: ["apriori mon", "aprmon"],
+    aliases: ["fastlane mon", "shmon", "shmonad", "staked mon fastlane"],
   },
 };
 

@@ -58,7 +58,7 @@ The MCP server enforces the grant. But what if the server is compromised? On act
 | Autonomy | `grant_session_key`, `list_session_keys`, `revoke_session_key` |
 | Onboarding | `create_user` (provisions a Monad-ready Privy wallet in one call) |
 
-**5 DeFi plugins**: Uniswap v3, Kintsu + aPriori liquid staking, Morpho Blue lending, Kuru CLOB. The plugin interface is additive — a new protocol is ~200 lines and inherits the approval + session-key flow for free.
+**5 DeFi plugins**: Uniswap v3, Kintsu + FastLane (shMONAD) liquid staking, Morpho Blue lending, Kuru CLOB. The plugin interface is additive — a new protocol is ~200 lines and inherits the approval + session-key flow for free.
 
 **Production-shaped**: stdio + Streamable HTTP transports, memory or Postgres persistence, webhook notifications, OAuth 2.1 metadata, 129 tests + live-testnet integration suite.
 
