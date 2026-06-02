@@ -5,10 +5,10 @@ import express, { type Request, type Response } from "express";
 import { approvalRouter } from "./approval/routes.js";
 import { authorizationServerMetadata, protectedResourceMetadata } from "./auth/oauth.js";
 import { privyTokenVerifier } from "./auth/verifier.js";
-import { buildServer } from "./server.js";
+import { buildMcpServer, buildServerContext } from "./server.js";
 
 async function main() {
-  const { mcp, context } = buildServer();
+  const context = buildServerContext();
   const { config, logger, auth } = context;
   const app = express();
   app.use(express.json({ limit: "1mb" }));
@@ -22,48 +22,83 @@ async function main() {
     });
   });
 
-  // OAuth 2.1 discovery — clients hit these to learn how to auth.
-  app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata(config));
-  app.get("/.well-known/oauth-protected-resource/mcp", protectedResourceMetadata(config));
-  app.get("/.well-known/oauth-authorization-server", authorizationServerMetadata(config));
+  // OAuth 2.1 discovery — only advertise auth when we can actually enforce it.
+  // In open (no-Privy) mode these 404, so spec-compliant MCP clients treat the
+  // server as anonymous and connect without attempting an OAuth flow.
+  if (auth) {
+    app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata(config));
+    app.get("/.well-known/oauth-protected-resource/mcp", protectedResourceMetadata(config));
+    app.get("/.well-known/oauth-authorization-server", authorizationServerMetadata(config));
+  }
 
   // Approval flow routes (page + API). The page is public, /submit is
   // bearer-authed at the handler level.
   app.use(approvalRouter(context));
 
-  // MCP transport. Stateless: one transport per process, auth carried per
-  // request via the Authorization header.
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // stateless
-  });
-  await mcp.connect(transport);
-
   const resourceMetadataUrl = `${config.publicBaseUrl}/.well-known/oauth-protected-resource/mcp`;
 
+  // Stateless: mint a fresh McpServer + transport per request. A single shared
+  // transport keeps one-shot session state, so reusing it makes every client
+  // after the first fail with "already initialized". The context (stores, auth)
+  // is shared across requests; only the transport/server are per-request.
+  const handleMcpPost = async (req: Request, res: Response) => {
+    const server = buildMcpServer(context);
+    const transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: undefined, // stateless
+    });
+    res.on("close", () => {
+      transport.close();
+      server.close();
+    });
+    try {
+      await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (err) {
+      logger.error("mcp transport error", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: { code: -32603, message: "Internal server error" },
+          id: null,
+        });
+      }
+    }
+  };
+
+  // This server is stateless, so it has no server→client stream to attach to a
+  // GET. Answer GET/DELETE with a clean 405 instead of letting the transport
+  // throw a 500 — a 500 on the SSE probe reads as "failed to connect" in clients.
+  const methodNotAllowed = (_req: Request, res: Response) => {
+    res.status(405).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "Method not allowed. This MCP server is stateless — use POST /mcp.",
+      },
+      id: null,
+    });
+  };
+
   if (auth) {
-    app.all(
+    app.post(
       "/mcp",
       requireBearerAuth({
         verifier: privyTokenVerifier(auth),
         resourceMetadataUrl,
       }),
-      (req: Request, res: Response) => {
-        transport.handleRequest(req, res, req.body).catch((err: Error) => {
-          logger.error("mcp transport error", { error: err.message });
-        });
-      },
+      handleMcpPost,
     );
   } else {
     logger.warn(
       "MCP /mcp endpoint is open (no Privy auth configured). " +
         "Set PRIVY_APP_ID and PRIVY_APP_SECRET to require Bearer tokens.",
     );
-    app.all("/mcp", (req: Request, res: Response) => {
-      transport.handleRequest(req, res, req.body).catch((err: Error) => {
-        logger.error("mcp transport error", { error: err.message });
-      });
-    });
+    app.post("/mcp", handleMcpPost);
   }
+  app.get("/mcp", methodNotAllowed);
+  app.delete("/mcp", methodNotAllowed);
 
   app.listen(config.port, () => {
     logger.info("monad-mcp http server listening", {
