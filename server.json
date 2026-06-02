@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
+  "name": "io.github.pareen/monad-mcp",
+  "description": "Gateway to the Monad blockchain for AI agents — balances, transfers, swaps, lending, staking, bridging & x402 payments, with Privy-backed signing and session keys.",
+  "status": "active",
+  "repository": {
+    "url": "https://github.com/pareen/monad-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "websiteUrl": "https://pareen.github.io/monad-mcp",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "monad-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PRIVY_APP_ID",
+          "description": "Privy app ID (dashboard.privy.io). Required for write tools.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "PRIVY_APP_SECRET",
+          "description": "Privy app secret. Required for write tools.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "MONAD_DEFAULT_NETWORK",
+          "description": "Default Monad network: 'mainnet' or 'testnet'.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "testnet"
+        }
+      ]
+    }
+  ]
+}
