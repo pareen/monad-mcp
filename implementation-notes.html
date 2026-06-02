@@ -121,13 +121,16 @@
 
   <h2>6. Phase 4 — DeFi plugins (this session)</h2>
 
-  <p class="meta">Built four plugins on top of the existing plugin framework: Kintsu (liquid staking), aPriori (liquid staking, async redemption), Morpho (lending), Kuru (CLOB). All write tools auto-route through the session-key grant system for free.</p>
+  <p class="meta">Built four plugins on top of the existing plugin framework: Kintsu (liquid staking), FastLane shMONAD (liquid staking), Morpho (lending), Kuru (CLOB). All write tools auto-route through the session-key grant system for free.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span>aPriori removed — replaced by FastLane shMONAD</h3>
+  <p>An earlier build shipped an aPriori liquid-staking plugin (aprMON, ERC-7540 async redemption). It was removed after aPriori was flagged as a scam — the plugin, its tests, and the aprMON canonical-token entry were deleted so portfolio/resolver tools no longer surface the token. The liquid-staking slot is now filled by <strong>FastLane shMONAD</strong> (shMON, verified vault <code>0x1B68626dCa36c7fE922fD2d55E4f631d962dE19c</code>). shMONAD is a clean ERC-4626 vault with a payable native deposit and <em>synchronous</em> redeem — simpler than both Kintsu (batch unlock) and the old aPriori (epoch wait). Neverland was evaluated for the slot but is a lending protocol (Aave V3 fork), not staking — noted as a future lending plugin instead.</p>
 
   <h3><span class="tag tag-decision">decision</span>Trust verified addresses, env-overridable</h3>
   <p>For each protocol I shipped the canonical mainnet addresses as defaults (sourced from monad-crypto/protocols), with env vars to override. Different model from Uniswap (which fail-loud-on-missing) because these protocols have stable canonical singletons that don't churn. Testnet defaults remain null — set per-protocol env vars if you have testnet deployments.</p>
 
-  <h3><span class="tag tag-decision">decision</span>Kintsu and aPriori share shape but not code</h3>
-  <p>Both are MON → LST flows with two-step unstake. Kintsu uses ERC-7535's <code>requestUnlock(shares) → redeem(unlockIndex, receiver)</code> with batched processing. aPriori uses ERC-7540's <code>requestRedeem(shares, controller, owner) → redeem(requestIDs[], receiver)</code> with epoch-based processing. The function signatures differ enough that "abstract them into one plugin" would muddy the boundaries — kept them separate. Their grant integration and approval flow code paths are identical (both call <code>tryExecuteViaGrant</code>, both fall through to <code>store.create</code> on miss), which is the property that mattered.</p>
+  <h3><span class="tag tag-decision">decision</span>Liquid-staking plugins share shape but not code</h3>
+  <p>Kintsu and FastLane are both MON → LST flows but with different unstake mechanics. Kintsu uses ERC-7535's <code>requestUnlock(shares) → redeem(unlockIndex, receiver)</code> with batched processing. FastLane's shMONAD is plain ERC-4626 with a <em>synchronous</em> <code>redeem(shares, receiver, owner)</code> — no queue, no epoch. The signatures differ enough that abstracting them into one plugin would muddy the boundaries — kept separate. Their grant integration and approval flow code paths are identical (both call <code>tryExecuteViaGrant</code>, both fall through to <code>store.create</code> on miss), which is the property that mattered.</p>
 
   <h3><span class="tag tag-decision">decision</span>Morpho takes MarketParams inline, computes id client-side</h3>
   <p>Morpho Blue identifies markets by <code>id = keccak256(abi.encode(MarketParams))</code>. Two API options: (a) take a market id and look up MarketParams server-side, (b) take MarketParams inline and compute id locally. Picked (b) because: it's stateless (no on-startup market fetch), the agent already has MarketParams from any Morpho discovery flow, and the failure mode is honest ("wrong MarketParams → wrong market" vs. "stale cached id → wrong market"). <code>marketId()</code> in <code>plugins/morpho/market.ts</code> is the one place that does the keccak.</p>
@@ -147,7 +150,7 @@
   <h3><span class="tag tag-open">open</span>Kuru order book reading</h3>
   <p><code>getL2Book()</code> returns packed bytes that need protocol-specific decoding. Shipped <code>bestBidAsk()</code> as the cheap read; full L2 decode is on the roadmap. For most agent use cases, best bid/ask + market params is enough to size an order.</p>
 
-  <h3><span class="tag tag-open">open</span>Kintsu / aPriori share price → APY</h3>
+  <h3><span class="tag tag-open">open</span>Kintsu / FastLane share price → APY</h3>
   <p>Neither protocol exposes APY on-chain. Computing it requires sampling <code>convertToAssets(1e18)</code> at two timestamps and annualizing the delta. We could either (a) cache snapshots server-side, (b) read the protocols' off-chain analytics APIs, or (c) make the agent do it. For v1 the <code>position</code> tools expose the snapshot share price — agents can chain two calls themselves if needed.</p>
 
   <h2>7. Phase 2 additions</h2>

@@ -4,6 +4,8 @@ MCP server for the [Monad](https://monad.xyz) blockchain. Your agent's gateway t
 
 Inspired by [Base MCP](https://docs.base.org/ai-agents/quickstart): same shape (stored requests + approval URLs + skill plugins), different chain (Monad mainnet `143` / testnet `10143`), different wallet provider (Privy instead of Base Account).
 
+**🌐 Landing page + live read-only demo:** [pareen.github.io/monad-mcp](https://pareen.github.io/monad-mcp) — query real Monad balances in your browser, exactly what the agent sees.
+
 ## What's in the box
 
 **Core tools** (work on any address; auth required only where noted):
@@ -40,13 +42,13 @@ Inspired by [Base MCP](https://docs.base.org/ai-agents/quickstart): same shape (
 
 - **Uniswap** (`uniswap_quote`, `uniswap_swap`, `approve_erc20`) — exact-input single-hop swaps on Uniswap v3 (testnet + mainnet).
 - **Kintsu** (`kintsu_stake`, `kintsu_request_unstake`, `kintsu_claim_unstake`, `kintsu_position`) — liquid staking MON → sMON via Kintsu's ERC-7535 vault. Two-step unstake with batch processing.
-- **aPriori** (`apriori_stake`, `apriori_request_redeem`, `apriori_claim_redeem`, `apriori_position`) — MEV-aware liquid staking MON → aprMON. ERC-4626 + ERC-7540 async redemption (~12–18h epoch).
+- **FastLane** (`fastlane_stake`, `fastlane_unstake`, `fastlane_position`) — liquid staking MON → shMON via FastLane's shMONAD ERC-4626 vault. Payable native deposit, synchronous redeem (no epoch wait); shMON keeps earning staking + MEV rewards.
 - **Morpho** (`morpho_supply`, `morpho_withdraw`, `morpho_borrow`, `morpho_repay`, `morpho_position`, `morpho_market`) — lending on Morpho Blue's singleton. Caller passes MarketParams inline; plugin derives the market id.
 - **Kuru** (`kuru_best_bid_ask`, `kuru_market_params`, `kuru_place_limit`, `kuru_cancel_orders`, `kuru_market_swap`) — fully-on-chain CLOB. Ships with known mainnet markets (MON/USDC, MON/AUSD, WETH/USDC); accepts raw addresses for new ones.
 
 All write tools across plugins auto-route through a covering session-key grant (see "Session keys" below); otherwise they return an approval URL.
 
-Mainnet-only plugins (Kintsu / aPriori / Morpho / Kuru) are skipped at boot when `MONAD_DEFAULT_NETWORK=testnet`. Override per-tool with `network: "mainnet"`.
+Mainnet-only plugins (Kintsu / FastLane / Morpho / Kuru) are skipped at boot when `MONAD_DEFAULT_NETWORK=testnet`. Override per-tool with `network: "mainnet"`.
 
 ## Quickstart
 
@@ -275,7 +277,7 @@ The e2e script reuses `MONAD_MCP_E2E_USER_ID` from env so you don't burn a new P
 ## What's next
 
 - Browser-first signing path (Privy web SDK in the approval page → no server-side `sendTransaction` round-trip).
-- Plugins for Kuru, Kintsu, Morpho, aPriori (stubs in place).
+- More plugins — Neverland lending (Aave V3 fork on Monad), additional DEXes/perps.
 - Postgres adapter for the request store + grants.
 - Block-explorer integration once Monad's explorer API stabilizes (`get_transaction_history` will return full decoded history).
 - x402 payment support (analog to Base MCP's "pay for x402-enabled services").

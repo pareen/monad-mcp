@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ServerContext } from "../context.js";
-import { aprioriPlugin } from "./apriori/index.js";
+import { fastlanePlugin } from "./fastlane/index.js";
 import { kintsuPlugin } from "./kintsu/index.js";
 import { kuruPlugin } from "./kuru/index.js";
 import { morphoPlugin } from "./morpho/index.js";
@@ -10,7 +10,7 @@ import { uniswapPlugin } from "./uniswap/index.js";
 export const builtinPlugins: SkillPlugin[] = [
   uniswapPlugin,
   kintsuPlugin,
-  aprioriPlugin,
+  fastlanePlugin,
   morphoPlugin,
   kuruPlugin,
 ];
