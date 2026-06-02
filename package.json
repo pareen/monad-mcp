@@ -1,8 +1,31 @@
 {
   "name": "monad-mcp",
   "version": "0.1.0",
-  "description": "MCP server for the Monad blockchain — balances, transfers, swaps, and DeFi skill plugins, with Privy-backed signing.",
+  "description": "MCP server for the Monad blockchain — balances, transfers, swaps, lending, staking, bridging & x402 payments for AI agents, with Privy-backed signing and session keys.",
   "license": "MIT",
+  "author": "Pareen Lathia",
+  "homepage": "https://pareen.github.io/monad-mcp",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pareen/monad-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pareen/monad-mcp/issues"
+  },
+  "keywords": [
+    "monad",
+    "mcp",
+    "model-context-protocol",
+    "blockchain",
+    "web3",
+    "evm",
+    "defi",
+    "privy",
+    "ai-agents",
+    "viem",
+    "claude",
+    "wallet"
+  ],
   "type": "module",
   "engines": {
     "node": ">=20.10.0"
@@ -23,6 +46,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build && npm run test",
     "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "dev:http": "tsx watch --env-file-if-exists=.env src/server-http.ts",
     "start": "node --env-file-if-exists=.env dist/index.js",
