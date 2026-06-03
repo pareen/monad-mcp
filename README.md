@@ -6,6 +6,20 @@ Built around a simple shape — stored requests + approval URLs + skill plugins 
 
 **🌐 Landing page + live read-only demo:** [pareen.github.io/monad-mcp](https://pareen.github.io/monad-mcp) — query real Monad balances in your browser, exactly what the agent sees.
 
+**🔌 Connect it to Claude** — read tools work with zero setup. One line in [Claude Code](https://claude.com/claude-code):
+
+```bash
+claude mcp add monad -- npx -y monad-mcp
+```
+
+Prefer not to install anything? Point at the live hosted endpoint instead:
+
+```bash
+claude mcp add --transport http monad https://monad-mcp.fly.dev/mcp
+```
+
+See [docs/connect-claude.md](docs/connect-claude.md) for Claude Desktop and unlocking write tools — and [docs/DEPLOY.md](docs/DEPLOY.md) to publish/host it yourself.
+
 ## What's in the box
 
 **Core tools** (work on any address; auth required only where noted):
@@ -221,7 +235,7 @@ The integration suite runs `transfer` end-to-end on Monad testnet through the Pr
 - **Stale link defense**: stored requests expire after `ttl_seconds` (default 5 min); expired requests can't be approved.
 - **CSRF on /reject**: rejection is intentionally permissionless — worst case, a stale link can't be re-used. Approval requires a Bearer token tied to the requesting user.
 
-For production, add: persistent store (Postgres) for the stored-requests, rate limiting on `/approve` and `/submit`, and per-tool spend caps via Privy policies.
+For production, the stored-request and grant stores already support a Postgres backend (set `STORE_BACKEND=postgres`); still on the hardening list are rate limiting on `/approve` and `/submit`, and per-tool spend caps via Privy policies.
 
 ## Session keys: skipping per-tx approvals
 
@@ -277,10 +291,9 @@ The e2e script reuses `MONAD_MCP_E2E_USER_ID` from env so you don't burn a new P
 
 - Browser-first signing path (Privy web SDK in the approval page → no server-side `sendTransaction` round-trip).
 - More plugins — Neverland lending (Aave V3 fork on Monad), additional DEXes/perps.
-- Postgres adapter for the request store + grants.
 - Block-explorer integration once Monad's explorer API stabilizes (`get_transaction_history` will return full decoded history).
 - x402 payment support (pay for x402-enabled services).
-- Per-token spend caps on session grants.
+- Per-token (ERC-20) spend caps on session grants — today's cap is a single native-MON budget per grant.
 - Universal contract reader/writer for "talk to any Monad contract" without writing a per-protocol plugin.
 
 ## License

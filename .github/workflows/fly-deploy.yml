@@ -1,0 +1,25 @@
+# See https://fly.io/docs/app-guides/continuous-deployment-with-github-actions/
+
+name: Fly Deploy
+on:
+  push:
+    branches:
+      - main
+
+# Opt the bundled JS actions (incl. third-party setup-flyctl) into the Node 24
+# runtime ahead of GitHub's 2026-06-16 default switch — silences the Node 20
+# deprecation warning.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  deploy:
+    name: Deploy app
+    runs-on: ubuntu-latest
+    concurrency: deploy-group    # optional: ensure only one action runs at a time
+    steps:
+      - uses: actions/checkout@v5
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
