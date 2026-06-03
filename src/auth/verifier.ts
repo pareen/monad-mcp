@@ -14,8 +14,9 @@ export function privyTokenVerifier(bridge: PrivyAuthBridge, logger?: Logger): OA
     async verifyAccessToken(token: string): Promise<AuthInfo> {
       let userId: string;
       let sessionId: string;
+      let expiresAt: number;
       try {
-        ({ userId, sessionId } = await bridge.verifyAccessToken(token));
+        ({ userId, sessionId, expiresAt } = await bridge.verifyAccessToken(token));
       } catch (err) {
         logger?.warn("mcp bearer rejected: token verification failed", {
           stage: "verify_jwt",
@@ -36,6 +37,7 @@ export function privyTokenVerifier(bridge: PrivyAuthBridge, logger?: Logger): OA
             token,
             clientId: userId,
             scopes: ["monad:read"],
+            expiresAt,
             extra: { userId, sessionId, walletAddress: null, walletId: null },
           };
         }
@@ -53,6 +55,7 @@ export function privyTokenVerifier(bridge: PrivyAuthBridge, logger?: Logger): OA
         token,
         clientId: userId,
         scopes: ["monad:read", "monad:write"],
+        expiresAt,
         extra: {
           userId: resolved.userId,
           sessionId,
