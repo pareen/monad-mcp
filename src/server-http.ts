@@ -1,8 +1,11 @@
 #!/usr/bin/env node
+import { randomBytes } from "node:crypto";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express, { type Request, type Response } from "express";
 import { approvalRouter } from "./approval/routes.js";
+import { oauthRouter } from "./auth/oauth-routes.js";
+import { AuthCodeStore } from "./auth/oauth-store.js";
 import { authorizationServerMetadata, protectedResourceMetadata } from "./auth/oauth.js";
 import { privyTokenVerifier } from "./auth/verifier.js";
 import { buildMcpServer, buildServerContext } from "./server.js";
@@ -22,13 +25,29 @@ async function main() {
     });
   });
 
-  // OAuth 2.1 discovery — only advertise auth when we can actually enforce it.
-  // In open (no-Privy) mode these 404, so spec-compliant MCP clients treat the
-  // server as anonymous and connect without attempting an OAuth flow.
+  // OAuth 2.1 discovery + authorization-server endpoints — only when Privy is
+  // configured (we can mint/verify tokens). In open (no-Privy) mode these 404,
+  // so spec-compliant MCP clients treat the server as anonymous and connect
+  // without attempting an OAuth flow.
   if (auth) {
     app.get("/.well-known/oauth-protected-resource", protectedResourceMetadata(config));
     app.get("/.well-known/oauth-protected-resource/mcp", protectedResourceMetadata(config));
     app.get("/.well-known/oauth-authorization-server", authorizationServerMetadata(config));
+    // Some clients append the resource path when discovering the AS.
+    app.get("/.well-known/oauth-authorization-server/mcp", authorizationServerMetadata(config));
+
+    // Secret for signing client_ids. Prefer a stable configured secret so
+    // registrations survive restarts; fall back to an ephemeral one (with a
+    // warning) so the flow still works on a bare deploy.
+    let oauthSecret = config.approvalSecret;
+    if (!oauthSecret) {
+      oauthSecret = randomBytes(32).toString("hex");
+      logger.warn(
+        "MONAD_MCP_APPROVAL_SECRET is unset — using an ephemeral OAuth signing secret. " +
+          "Registered OAuth clients will be invalidated on restart. Set it for stability.",
+      );
+    }
+    app.use(oauthRouter({ config, logger, auth, codes: new AuthCodeStore(), oauthSecret }));
   }
 
   // Approval flow routes (page + API). The page is public, /submit is

@@ -183,7 +183,31 @@
   <h3><span class="tag tag-open">open</span>Grant + simulation</h3>
   <p>Grant coverage today is decided pre-flight. We could go further: simulate the call via Tenderly-equivalent, infer the actual asset deltas, and apply per-token caps based on what the simulation reports. Avoids the "did we just drain the wallet" failure mode.</p>
 
-  <h2>8. What ships in v1</h2>
+  <h2>8. OAuth 2.1 bridge to Privy (hosted write flow)</h2>
+  <p>To let a non-coder connect the <em>hosted</em> URL in Claude Desktop / ChatGPT and actually send transactions, the server now acts as a small OAuth 2.1 authorization server in front of Privy login. New surface: <code>POST /oauth/register</code>, <code>GET /authorize</code>, <code>POST /authorize/consent</code>, <code>POST /token</code> (in <code>src/auth/oauth-routes.ts</code> + <code>oauth-store.ts</code> + <code>login-page.ts</code>).</p>
+
+  <h3><span class="tag tag-decision">decision</span>Pass-through tokens, not our own JWTs</h3>
+  <p>The bearer token we issue at <code>/token</code> <em>is</em> the user's Privy access token, verbatim. The existing <code>privyTokenVerifier</code> already validates Privy JWTs via JWKS, so wrapping them in our own JWT would add a second signing identity and key-management burden for zero gain. Scopes are assigned server-side at verification time, so they don't need to live in the token.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Self-describing signed <code>client_id</code> for Dynamic Client Registration</h3>
+  <p>Rather than persist a client table, <code>client_id</code> is <code>base64url(JSON).hmac</code> encoding the registered redirect URIs (same HMAC trick as the approval token). Verifying the signature re-derives the redirect allowlist — no DB lookup, survives restarts and multiple machines. Fixes the original 404 at <code>/oauth/register</code> that broke connector login entirely.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Authorization codes are in-process, not persisted</h3>
+  <p>Codes must be one-shot, which a stateless signed token can't guarantee (no way to invalidate after use). So codes live in an in-memory TTL map (<code>AuthCodeStore</code>), deleted on redemption — true single-use, 2-minute TTL. Cost: a code minted on one machine can't be redeemed on another, and codes don't survive a restart. Acceptable because the hosted endpoint runs <code>min_machines_running=1</code> and the authorize&rarr;token gap is seconds; on a miss the user just re-runs login (usually silent if their Privy session is warm).</p>
+
+  <h3><span class="tag tag-decision">decision</span>PKCE S256 required; redirect_uri validated before any redirect</h3>
+  <p><code>/authorize</code> verifies <code>client_id</code> and that <code>redirect_uri</code> is in its registration <em>before</em> ever issuing a redirect, so we can't be turned into an open redirector. Protocol errors after that point bounce back to the validated URI with <code>error</code>/<code>state</code>. Only <code>code_challenge_method=S256</code> is accepted. DCR rejects redirect URIs that aren't https or http-loopback.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span>No refresh_token grant in v1</h3>
+  <p>Privy session refresh is a browser concern (the SDK holds the refresh token), not something the server SDK exposes cleanly. So we advertise only <code>authorization_code</code>. When the Privy access token expires (~1h), the MCP client re-runs <code>/authorize</code>; because the user's Privy session cookie persists on our origin, that re-auth is typically silent. <code>expires_in</code> is derived from the token's own <code>exp</code> claim so clients refresh on time.</p>
+
+  <h3><span class="tag tag-open">open</span>Browser login page is unverified without live Privy creds</h3>
+  <p>The login page (<code>login-page.ts</code>) loads React + <code>@privy-io/react-auth</code> as browser-native ESM from esm.sh (no build step, <code>React.createElement</code> so no in-browser Babel). Everything <em>around</em> it is unit-tested (10 tests, full register&rarr;authorize&rarr;consent&rarr;token flow over a live ephemeral server) and smoke-tested against a running server. But the actual Privy login modal can only be exercised with a real Privy <code>appId</code> whose "Allowed origins" includes the server's <code>publicBaseUrl</code> — i.e. one live deploy. Two specific risks to confirm on that first run: (1) esm.sh reliably serves the (heavy) react-auth bundle; (2) <code>getAccessToken()</code> returns a token the server-side verifier accepts. If esm.sh proves flaky, the fallback is a tiny Vite-built static asset.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Signing secret reuses <code>MONAD_MCP_APPROVAL_SECRET</code></h3>
+  <p>Client-id signing uses the existing approval secret. If unset, the server logs a warning and generates an ephemeral one at boot — the flow still works, but registered clients invalidate on restart, so a stable secret is recommended for any real deploy.</p>
+
+  <h2>9. What ships in v1</h2>
   <ul>
     <li>TypeScript project: tsconfig, vitest, biome, .env.example, LICENSE</li>
     <li>MCP server: stdio + Streamable HTTP entrypoints, McpServer factory, registerTool/runTool split</li>

@@ -99,8 +99,13 @@ curl http://localhost:8787/health
 
 ### (Optional) enable write tools on your own deploy
 
-A write-enabled endpoint needs Privy signing infrastructure. Set the secrets
-(they're encrypted at rest on Fly, never in the image):
+A write-enabled endpoint lets a remote MCP client (Claude Desktop / ChatGPT
+connectors) do the full **paste a URL → sign in → send** flow: the server runs a
+small OAuth 2.1 authorization server in front of Privy login (`/oauth/register`,
+`/authorize`, `/token`), and the bearer token it issues is the user's own Privy
+access token.
+
+Three things to set:
 
 ```bash
 fly secrets set \
@@ -108,26 +113,29 @@ fly secrets set \
   PRIVY_APP_SECRET=xxxx \
   PRIVY_AUTHORIZATION_PRIVATE_KEY=... \
   PRIVY_KEY_QUORUM_ID=... \
-  PUBLIC_BASE_URL=https://<app-name>.fly.dev
+  PUBLIC_BASE_URL=https://<app-name>.fly.dev \
+  MONAD_MCP_APPROVAL_SECRET=$(openssl rand -hex 32)   # stable secret for signing client_ids
 ```
 
-> ⚠️ **Heads up — don't do this on a hosted endpoint you expect a remote client
-> to log into yet.** The moment `PRIVY_APP_ID`/`PRIVY_APP_SECRET` are present,
-> `/mcp` starts *requiring* an OAuth 2.1 bearer token — but the browser
-> sign-in flow that lets a remote MCP client (Claude Desktop / ChatGPT
-> connectors) obtain that token is **not implemented yet**. The advertised
-> `registration_endpoint` (`/oauth/register`) has no route, so spec-compliant
-> clients fail Dynamic Client Registration and can't connect at all. Setting
-> these secrets on the public endpoint would lock every connector out.
+Then, in the **Privy dashboard → Settings → Allowed origins**, add your
+`PUBLIC_BASE_URL` (e.g. `https://<app-name>.fly.dev`). Without this the embedded
+login modal on `/authorize` refuses to initialise.
+
+How a client connects after that: it hits `/mcp`, gets a `401` pointing at the
+discovery metadata, registers via `/oauth/register`, opens `/authorize` in a
+browser where the user logs in with Privy, and exchanges the resulting code at
+`/token`. From then on each transaction still surfaces its own approval page.
+
+> ⚠️ **Newly built — verify on first deploy.** The OAuth protocol layer is
+> unit-tested and smoke-tested, but the in-browser Privy login step can only be
+> exercised against a real Privy app + allowed origin. On your first deploy,
+> confirm: (1) the `/authorize` page loads the Privy SDK (it's pulled from
+> esm.sh), and (2) login completes and a `transfer` round-trips. See the "open"
+> note in `implementation-notes.html`.
 >
-> Today the write path that actually works is **local stdio** — where Claude
-> Desktop / Claude Code run the server on your machine and the approval page
-> signs in the browser. See [claude-desktop.md](./claude-desktop.md).
->
-> The hosted "paste a URL → sign in → send" flow needs the server to act as a
-> small OAuth 2.1 authorization server in front of Privy login (`/oauth/register`
-> + `/authorize` + `/token`). That's the planned next step; until it ships, keep
-> the public endpoint in its open, read-only mode.
+> Until you've verified your own deploy, the **public** `monad-mcp.fly.dev`
+> endpoint stays in open, read-only mode (no Privy secrets attached) — so it's
+> still safe to share.
 
 ### Other hosts
 
