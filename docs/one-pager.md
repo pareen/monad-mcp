@@ -1,6 +1,6 @@
 # monad-mcp — technical one-pager
 
-> A key-custody-safe bridge between AI agents and Monad DeFi. Agents *propose*; users (or pre-authorized session grants) *approve*; Privy *signs*. Base MCP's proven shape, retargeted to Monad, extensible via drop-in protocol plugins.
+> A key-custody-safe bridge between AI agents and Monad DeFi. Agents *propose*; users (or pre-authorized session grants) *approve*; Privy *signs*. A proven shape — stored requests, approval URLs, skill plugins — built for Monad and extensible via drop-in protocol plugins.
 
 **Live demo:** [pareen.github.io/monad-mcp](https://pareen.github.io/monad-mcp) — read-only, queries real Monad balances, exactly what the agent sees.
 
@@ -10,7 +10,7 @@
 
 An **MCP server** that gives an AI agent (Claude, ChatGPT, Cursor) a safe, typed interface to the **Monad blockchain** — balances, transfers, swaps, lending, staking, on-chain order books — **without ever handing the agent a private key**. Signing is delegated to a **Privy embedded wallet**; the agent only ever builds *unsigned* intents and hands the user a URL to approve.
 
-Architecturally it's a deliberate clone of **Base MCP** — same primitives (stored requests, approval URLs, skill plugins) — retargeted at Monad (mainnet `143` / testnet `10143`) with Privy as the wallet provider instead of Base Account.
+Architecturally it's built around three primitives — **stored requests, approval URLs, and skill plugins** — on Monad (mainnet `143` / testnet `10143`) with Privy as the wallet provider.
 
 ---
 
@@ -60,4 +60,4 @@ The agent's blast radius is "can *propose* a transaction," never "can *move* fun
 
 ## TL;DR
 
-A key-custody-safe bridge between AI agents and Monad DeFi: agents propose, users (or pre-authorized session grants) approve, Privy signs. Base MCP's proven shape, retargeted to Monad, extensible via drop-in protocol plugins.
+A key-custody-safe bridge between AI agents and Monad DeFi: agents propose, users (or pre-authorized session grants) approve, Privy signs. A proven shape — stored requests, approval URLs, skill plugins — built for Monad and extensible via drop-in protocol plugins.
