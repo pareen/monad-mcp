@@ -20,6 +20,8 @@ claude mcp add --transport http monad https://monad-mcp.fly.dev/mcp
 
 See [docs/connect-claude.md](docs/connect-claude.md) for Claude Desktop and unlocking write tools — and [docs/DEPLOY.md](docs/DEPLOY.md) to publish/host it yourself.
 
+**🧭 Monad ≠ Ethereum:** the server ships agent-facing guidance on Monad's quirks (128 KB contracts, `gas_limit` billing, speculative `latest`, `eth_getLogs` caps, FastLane/MEV) as `monad://guide/*` MCP resources — see [docs/building-on-monad.md](docs/building-on-monad.md).
+
 ## What's in the box
 
 **Core tools** (work on any address; auth required only where noted):
