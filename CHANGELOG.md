@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+**Site**
+- Reworked the landing page around *connecting* the MCP to a client: a tabbed
+  "Pick your client" panel (Claude Code, Claude Desktop, ChatGPT, claude.ai) with
+  copy-to-clipboard commands and the hosted read-only URL front and center.
+- Added a developer/self-host subpage (`site/dev.html`) — the write-enabled "dev
+  version" walkthrough (Privy bootstrap, approval server, session keys, deploy your
+  own endpoint) — and a summary section linking to it from the main page.
+- Extracted a shared stylesheet (`site/styles.css`) used by both pages.
+- Corrected the live demo's tool count to 46 (26 read / 20 write across 5 DeFi
+  plugins) and fixed the dead mainnet explorer URL (`monadexplorer.com`).
+
 ## [0.1.0] — 2026-06-02
 
 First public release. An MCP server that gives AI agents a secure gateway to the
