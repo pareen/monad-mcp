@@ -28,7 +28,7 @@ describe("monad chain config", () => {
     expect(isMonadChainId(143)).toBe(true);
     expect(isMonadChainId(10143)).toBe(true);
     expect(isMonadChainId(1)).toBe(false);
-    expect(isMonadChainId(8453)).toBe(false);
+    expect(isMonadChainId(10)).toBe(false);
   });
 
   test("networkForChainId reverses the mapping", () => {

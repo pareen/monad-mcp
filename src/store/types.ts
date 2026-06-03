@@ -4,9 +4,9 @@ export type StoredRequestStatus = "pending" | "approved" | "rejected" | "expired
 
 /**
  * An unsigned transaction the agent has built and is asking the user to approve.
- * Mirrors Base Account's "stored requests" primitive: the agent stashes the
- * payload, the user follows an approval URL that surfaces it in a wallet UI,
- * and the agent polls for the resulting tx hash.
+ * The "stored request" primitive: the agent stashes the payload, the user
+ * follows an approval URL that surfaces it in a wallet UI, and the agent polls
+ * for the resulting tx hash.
  */
 export interface StoredRequest {
   id: string;

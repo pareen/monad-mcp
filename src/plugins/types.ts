@@ -6,7 +6,7 @@ import type { ServerContext } from "../context.js";
  * for a specific protocol or app on Monad (e.g. Uniswap, Kuru, Kintsu).
  *
  * Plugins are kept inside this repo for v1, but the interface is designed so
- * they could be loaded out-of-process later (a la Base MCP's markdown specs).
+ * they could be loaded out-of-process later (e.g. as external markdown specs).
  */
 export interface SkillPlugin {
   id: string;

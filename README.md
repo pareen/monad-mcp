@@ -2,7 +2,7 @@
 
 MCP server for the [Monad](https://monad.xyz) blockchain. Your agent's gateway to balances, transfers, swaps, and DeFi on Monad — with signing handled by a [Privy](https://privy.io) embedded wallet, never by the agent.
 
-Inspired by [Base MCP](https://docs.base.org/ai-agents/quickstart): same shape (stored requests + approval URLs + skill plugins), different chain (Monad mainnet `143` / testnet `10143`), different wallet provider (Privy instead of Base Account).
+Built around a simple shape — stored requests + approval URLs + skill plugins — on Monad mainnet `143` / testnet `10143`, with [Privy](https://privy.io) as the wallet provider.
 
 **🌐 Landing page + live read-only demo:** [pareen.github.io/monad-mcp](https://pareen.github.io/monad-mcp) — query real Monad balances in your browser, exactly what the agent sees.
 
@@ -135,26 +135,25 @@ npm run start:http
 
 ### 4. Wire it into Claude Desktop
 
-Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`. The `--env-file` flag loads `PRIVY_*`, `MONAD_*`, and `PUBLIC_BASE_URL` from your `.env` into the spawned process:
 
 ```json
 {
   "mcpServers": {
     "monad": {
       "command": "node",
-      "args": ["/absolute/path/to/monad-mcp/dist/index.js"],
-      "env": {
-        "PRIVY_APP_ID": "clxxxxxxxxxxx",
-        "PRIVY_APP_SECRET": "...",
-        "MONAD_DEFAULT_NETWORK": "testnet",
-        "PUBLIC_BASE_URL": "http://localhost:8787"
-      }
+      "args": [
+        "--env-file=/absolute/path/to/monad-mcp/.env",
+        "/absolute/path/to/monad-mcp/dist/index.js"
+      ]
     }
   }
 }
 ```
 
-You'll also need the HTTP server running (`npm run start:http`) for the approval flow — the stdio MCP returns approval URLs that point at the HTTP server.
+You'll also need the HTTP server running (`npm run start:http`) for the approval flow — the stdio MCP returns approval URLs that point at the HTTP server. See [docs/claude-desktop.md](docs/claude-desktop.md) for the full dogfood walkthrough (bootstrap, funding, first transfer).
+
+> **Read-only, no self-hosting:** to try just the read tools (balances, portfolio, history) without building anything, point Claude Desktop at the hosted endpoint via the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) shim — `"args": ["-y", "mcp-remote", "https://monad-mcp.fly.dev/mcp"]`. Writes (transfers/swaps) need a self-hosted signer and aren't available there.
 
 ### 5. Try a prompt
 
@@ -185,7 +184,7 @@ monad-mcp server
                             └── /approve/:id  →  Privy hosted signing  →  tx hash
 ```
 
-Write tools follow the **stored request pattern** (Base MCP's primitive):
+Write tools follow the **stored request pattern**:
 1. Tool builds an unsigned `{ to, value, data }` payload and a human-readable summary.
 2. Server stores it under a UUID and returns `https://your-server/approve/<uuid>` to the agent.
 3. User opens the URL — page shows the summary + asset diff + signs via their Privy embedded wallet.
@@ -293,7 +292,9 @@ The e2e script reuses `MONAD_MCP_E2E_USER_ID` from env so you don't burn a new P
 - Browser-first signing path (Privy web SDK in the approval page → no server-side `sendTransaction` round-trip).
 - More plugins — Neverland lending (Aave V3 fork on Monad), additional DEXes/perps.
 - Block-explorer integration once Monad's explorer API stabilizes (`get_transaction_history` will return full decoded history).
+- x402 payment support (pay for x402-enabled services).
 - Per-token (ERC-20) spend caps on session grants — today's cap is a single native-MON budget per grant.
+- Universal contract reader/writer for "talk to any Monad contract" without writing a per-protocol plugin.
 
 ## License
 
