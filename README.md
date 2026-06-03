@@ -236,7 +236,7 @@ The integration suite runs `transfer` end-to-end on Monad testnet through the Pr
 - **Stale link defense**: stored requests expire after `ttl_seconds` (default 5 min); expired requests can't be approved.
 - **CSRF on /reject**: rejection is intentionally permissionless — worst case, a stale link can't be re-used. Approval requires a Bearer token tied to the requesting user.
 
-For production, add: persistent store (Postgres) for the stored-requests, rate limiting on `/approve` and `/submit`, and per-tool spend caps via Privy policies.
+For production, the stored-request and grant stores already support a Postgres backend (set `STORE_BACKEND=postgres`); still on the hardening list are rate limiting on `/approve` and `/submit`, and per-tool spend caps via Privy policies.
 
 ## Session keys: skipping per-tx approvals
 
@@ -292,11 +292,8 @@ The e2e script reuses `MONAD_MCP_E2E_USER_ID` from env so you don't burn a new P
 
 - Browser-first signing path (Privy web SDK in the approval page → no server-side `sendTransaction` round-trip).
 - More plugins — Neverland lending (Aave V3 fork on Monad), additional DEXes/perps.
-- Postgres adapter for the request store + grants.
 - Block-explorer integration once Monad's explorer API stabilizes (`get_transaction_history` will return full decoded history).
-- x402 payment support (analog to Base MCP's "pay for x402-enabled services").
-- Per-token spend caps on session grants.
-- Universal contract reader/writer for "talk to any Monad contract" without writing a per-protocol plugin.
+- Per-token (ERC-20) spend caps on session grants — today's cap is a single native-MON budget per grant.
 
 ## License
 
