@@ -28,6 +28,7 @@ const authedInfo: AuthInfo = {
   token: "tok",
   clientId: "did:privy:user1",
   scopes: ["monad:read", "monad:write"],
+  expiresAt: Math.floor(Date.now() / 1000) + 3600,
   extra: {
     userId: "did:privy:user1",
     sessionId: "sess",
