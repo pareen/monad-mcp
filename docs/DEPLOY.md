@@ -99,8 +99,8 @@ curl http://localhost:8787/health
 
 ### (Optional) enable write tools on your own deploy
 
-A hosted write-enabled endpoint also needs Privy signing infrastructure. Set the
-secrets (they're encrypted at rest on Fly, never in the image):
+A write-enabled endpoint needs Privy signing infrastructure. Set the secrets
+(they're encrypted at rest on Fly, never in the image):
 
 ```bash
 fly secrets set \
@@ -111,9 +111,23 @@ fly secrets set \
   PUBLIC_BASE_URL=https://<app-name>.fly.dev
 ```
 
-Once `PRIVY_APP_ID`/`PRIVY_APP_SECRET` are present, `/mcp` switches to requiring
-an OAuth 2.1 bearer token (the per-user Privy identity) and the approval flow
-goes live. See [claude-desktop.md](./claude-desktop.md) for the bootstrap details.
+> ⚠️ **Heads up — don't do this on a hosted endpoint you expect a remote client
+> to log into yet.** The moment `PRIVY_APP_ID`/`PRIVY_APP_SECRET` are present,
+> `/mcp` starts *requiring* an OAuth 2.1 bearer token — but the browser
+> sign-in flow that lets a remote MCP client (Claude Desktop / ChatGPT
+> connectors) obtain that token is **not implemented yet**. The advertised
+> `registration_endpoint` (`/oauth/register`) has no route, so spec-compliant
+> clients fail Dynamic Client Registration and can't connect at all. Setting
+> these secrets on the public endpoint would lock every connector out.
+>
+> Today the write path that actually works is **local stdio** — where Claude
+> Desktop / Claude Code run the server on your machine and the approval page
+> signs in the browser. See [claude-desktop.md](./claude-desktop.md).
+>
+> The hosted "paste a URL → sign in → send" flow needs the server to act as a
+> small OAuth 2.1 authorization server in front of Privy login (`/oauth/register`
+> + `/authorize` + `/token`). That's the planned next step; until it ships, keep
+> the public endpoint in its open, read-only mode.
 
 ### Other hosts
 

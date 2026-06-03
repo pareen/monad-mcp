@@ -6,19 +6,25 @@ Inspired by [Base MCP](https://docs.base.org/ai-agents/quickstart): same shape (
 
 **🌐 Landing page + live read-only demo:** [pareen.github.io/monad-mcp](https://pareen.github.io/monad-mcp) — query real Monad balances in your browser, exactly what the agent sees.
 
-**🔌 Connect it to Claude** — read tools work with zero setup. One line in [Claude Code](https://claude.com/claude-code):
+**🔌 Connect it — no install, no terminal.** In **Claude Desktop** or **ChatGPT**,
+add a custom connector and paste this URL:
 
-```bash
-claude mcp add monad -- npx -y monad-mcp
+```
+https://monad-mcp.fly.dev/mcp
 ```
 
-Prefer not to install anything? Point at the live hosted endpoint instead:
+That's the whole setup — read tools (balances, prices, portfolios, token checks)
+work immediately. Step-by-step for each app: [docs/connect-claude.md](docs/connect-claude.md).
+
+Prefer the terminal? One line in [Claude Code](https://claude.com/claude-code):
 
 ```bash
-claude mcp add --transport http monad https://monad-mcp.fly.dev/mcp
+claude mcp add --transport http monad https://monad-mcp.fly.dev/mcp   # hosted
+claude mcp add monad -- npx -y monad-mcp                              # or run it locally
 ```
 
-See [docs/connect-claude.md](docs/connect-claude.md) for Claude Desktop and unlocking write tools — and [docs/DEPLOY.md](docs/DEPLOY.md) to publish/host it yourself.
+The hosted endpoint is **read-only** by design (safe to share). Sending transactions
+needs your own Privy-signed instance for now — see [docs/connect-claude.md](docs/connect-claude.md#sending-transactions-writes) and [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## What's in the box
 
