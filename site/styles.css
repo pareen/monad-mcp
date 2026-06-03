@@ -147,7 +147,24 @@ h2.left { text-align: left; }
 .tab-panel .desc { color: var(--muted); font-size: 14px; margin: 0 0 16px; }
 .tab-panel .substep { color: var(--faint); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 18px 0 8px; }
 .tab-panel .substep:first-child { margin-top: 0; }
-
+.plain-steps { display: grid; gap: 12px; margin-top: 16px; }
+.plain-step {
+  display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: start;
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px;
+}
+.plain-step > span {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+  background: var(--accent); color: #fff; font-weight: 800; font-size: 13px;
+}
+.plain-step strong { display: block; font-size: 14px; margin: 2px 0 3px; }
+.plain-step p { color: var(--muted); font-size: 13.5px; margin: 0; }
+.plain-step .codeblock { margin-top: 8px; }
+.try-card {
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px 15px; color: var(--muted); font-size: 13.5px;
+}
+.try-card strong { color: var(--fg); }
 /* ---------- code blocks + copy ---------- */
 .codeblock { position: relative; margin: 0 0 6px; }
 .codeblock pre {
@@ -157,6 +174,9 @@ h2.left { text-align: left; }
   white-space: pre; color: #e8e8f2;
 }
 .codeblock pre.wrap-code { white-space: pre-wrap; word-break: break-word; }
+.codeblock.copy-url pre {
+  white-space: pre-wrap; word-break: break-all; padding-right: 94px;
+}
 .copy {
   position: absolute; top: 9px; right: 9px;
   appearance: none; cursor: pointer;
@@ -169,6 +189,20 @@ h2.left { text-align: left; }
 .tok-c { color: var(--faint); }   /* comment */
 .tok-k { color: var(--accent2); } /* keyword/flag */
 .tok-s { color: var(--ok); }      /* string */
+@media (max-width: 520px) {
+  .codeblock.copy-url pre {
+    padding-right: 16px;
+    font-size: 11px;
+    white-space: normal;
+    word-break: normal;
+  }
+  .codeblock.copy-url .copy {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+    padding: 8px 10px;
+  }
+}
 
 code.inl {
   font-family: var(--mono); background: var(--panel2); border: 1px solid var(--border);

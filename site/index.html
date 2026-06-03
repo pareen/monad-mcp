@@ -21,7 +21,6 @@
       <a href="#demo" class="hide-sm">Live demo</a>
       <a href="#tools" class="hide-sm">Tools</a>
       <a href="#faq" class="hide-sm">FAQ</a>
-      <a href="dev.html">Developers</a>
       <a href="https://github.com/pareen/monad-mcp">GitHub ↗</a>
     </nav>
   </div>
@@ -50,101 +49,93 @@
   <div class="wrap">
     <p class="eyebrow">Get connected</p>
     <h2>Pick your client</h2>
-    <p class="lead">The hosted endpoint serves the <b>read tools</b> with zero setup — no install, no keys, no wallet. Want your agent to <i>send</i> transactions? That's the self-host path; see <a href="#developers">Run your own server</a>.</p>
+    <p class="lead">You only need to add one hosted connector URL to Claude or ChatGPT. No wallet setup, no keys, no install. Once connected, ask for Monad balances, tokens, prices, and portfolios in plain English.</p>
 
     <div class="connect">
       <div class="tabbar" role="tablist" aria-label="MCP clients">
-        <button class="tab-btn" role="tab" aria-selected="true" aria-controls="tab-code" id="t-code">Claude Code</button>
-        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-desktop" id="t-desktop">Claude Desktop</button>
+        <button class="tab-btn" role="tab" aria-selected="true" aria-controls="tab-claude" id="t-claude">Claude</button>
         <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-chatgpt" id="t-chatgpt">ChatGPT</button>
-        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-claudeai" id="t-claudeai">claude.ai</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-code" id="t-code">Claude Code</button>
+      </div>
+
+      <!-- Claude -->
+      <div class="tab-panel active" id="tab-claude" role="tabpanel" aria-labelledby="t-claude">
+        <h3>Claude</h3>
+        <p class="desc">Use Claude's connector settings. This works in Claude on the web and in the desktop app.</p>
+
+        <div class="plain-steps">
+          <div class="plain-step">
+            <span>1</span>
+            <div><strong>Open Claude settings</strong><p>Open <b>Settings</b>, then choose <b>Connectors</b>.</p></div>
+          </div>
+          <div class="plain-step">
+            <span>2</span>
+            <div><strong>Add Monad</strong><p>Choose <b>Add custom connector</b>. Name it <code class="inl">monad</code>.</p></div>
+          </div>
+          <div class="plain-step">
+            <span>3</span>
+            <div><strong>Paste this URL</strong>
+              <div class="codeblock copy-url">
+                <pre>https://monad-mcp.fly.dev/<wbr>mcp</pre>
+                <button class="copy">Copy URL</button>
+              </div>
+            </div>
+          </div>
+          <div class="plain-step">
+            <span>4</span>
+            <div><strong>Start a new chat</strong><p>Turn on the Monad connector and ask for a balance, token, price, or portfolio.</p></div>
+          </div>
+        </div>
+
+        <div class="callout">Nothing runs on your computer. Claude connects to the hosted Monad connector.</div>
+      </div>
+
+      <!-- ChatGPT -->
+      <div class="tab-panel" id="tab-chatgpt" role="tabpanel" aria-labelledby="t-chatgpt">
+        <h3>ChatGPT</h3>
+        <p class="desc">Use ChatGPT's Apps or Connectors settings to add the hosted Monad connector.</p>
+
+        <div class="plain-steps">
+          <div class="plain-step">
+            <span>1</span>
+            <div><strong>Open Apps or Connectors</strong><p>In ChatGPT settings, open <b>Apps</b> or <b>Connectors</b>.</p></div>
+          </div>
+          <div class="plain-step">
+            <span>2</span>
+            <div><strong>Add Monad</strong><p>Choose <b>Create</b> or <b>Add custom connector</b>. Name it <code class="inl">monad</code>.</p></div>
+          </div>
+          <div class="plain-step">
+            <span>3</span>
+            <div><strong>Paste this URL</strong>
+              <div class="codeblock copy-url"><pre>https://monad-mcp.fly.dev/<wbr>mcp</pre><button class="copy">Copy URL</button></div>
+              <p>Choose no authentication if ChatGPT asks.</p>
+            </div>
+          </div>
+          <div class="plain-step">
+            <span>4</span>
+            <div><strong>Save and chat</strong><p>Let ChatGPT scan the tools, save the connector, then enable it in a chat.</p></div>
+          </div>
+        </div>
+        <div class="callout">Nothing runs on your computer. ChatGPT connects to the hosted Monad connector.</div>
       </div>
 
       <!-- Claude Code -->
-      <div class="tab-panel active" id="tab-code" role="tabpanel" aria-labelledby="t-code">
-        <h3>Claude Code <span class="badge-mini">recommended</span></h3>
-        <p class="desc">One command in your terminal. Two ways — the hosted URL (nothing to install) or run the package locally with <code class="inl">npx</code>.</p>
+      <div class="tab-panel" id="tab-code" role="tabpanel" aria-labelledby="t-code">
+        <h3>Claude Code <span class="badge-mini">terminal app</span></h3>
+        <p class="desc">Claude Code is the developer-style client. If you use it, paste this one command into your terminal.</p>
 
-        <div class="substep">A · Hosted URL — read-only, zero install</div>
+        <div class="substep">1 · Add Monad</div>
         <div class="codeblock">
           <pre><span class="tok-k">claude</span> mcp add <span class="tok-k">--transport</span> http monad <span class="tok-s">https://monad-mcp.fly.dev/mcp</span></pre>
           <button class="copy">Copy</button>
         </div>
 
-        <div class="substep">B · Run locally with npx — read-only, no keys</div>
-        <div class="codeblock">
-          <pre><span class="tok-k">claude</span> mcp add monad -- npx -y monad-mcp</pre>
-          <button class="copy">Copy</button>
-        </div>
-
-        <div class="callout">Restart Claude Code, then ask: <strong>“What's the balance of 0x7E274bCA90eEfa81761080e074AFb1D354a0c552 on Monad testnet?”</strong> Remove any time with <code class="inl">claude mcp remove monad</code>.</div>
-      </div>
-
-      <!-- Claude Desktop -->
-      <div class="tab-panel" id="tab-desktop" role="tabpanel" aria-labelledby="t-desktop">
-        <h3>Claude Desktop</h3>
-        <p class="desc">Claude Desktop speaks stdio, so the hosted URL goes through the <a href="https://www.npmjs.com/package/mcp-remote"><code class="inl">mcp-remote</code></a> shim. Open your config and add the <code class="inl">monad</code> entry.</p>
-
-        <div class="substep">1 · Open the config file</div>
-        <div class="codeblock">
-          <pre><span class="tok-c"># macOS</span>
-open ~/Library/Application\ Support/Claude/claude_desktop_config.json
-<span class="tok-c"># Linux:   ~/.config/Claude/claude_desktop_config.json</span>
-<span class="tok-c"># Windows: %APPDATA%/Claude/claude_desktop_config.json</span></pre>
-          <button class="copy">Copy</button>
-        </div>
-
-        <div class="substep">2 · Add the monad server (hosted, read-only)</div>
-        <div class="codeblock">
-          <pre>{
-  <span class="tok-s">"mcpServers"</span>: {
-    <span class="tok-s">"monad"</span>: {
-      <span class="tok-s">"command"</span>: <span class="tok-s">"npx"</span>,
-      <span class="tok-s">"args"</span>: [<span class="tok-s">"-y"</span>, <span class="tok-s">"mcp-remote"</span>, <span class="tok-s">"https://monad-mcp.fly.dev/mcp"</span>]
-    }
-  }
-}</pre>
-          <button class="copy">Copy</button>
-        </div>
-
-        <div class="callout">Prefer running the package directly? Swap the args for <code class="inl">["-y", "monad-mcp"]</code> and add <code class="inl">"env": { "MONAD_DEFAULT_NETWORK": "testnet" }</code>. Then quit Claude Desktop completely (<strong>⌘Q</strong> — closing the window isn't enough) and reopen.</div>
-      </div>
-
-      <!-- ChatGPT -->
-      <div class="tab-panel" id="tab-chatgpt" role="tabpanel" aria-labelledby="t-chatgpt">
-        <h3>ChatGPT <span class="badge-mini">custom connector</span></h3>
-        <p class="desc">ChatGPT connects to remote MCP servers over streamable HTTP. Add monad-mcp as a custom connector and paste the hosted URL.</p>
-
-        <div class="substep">Steps</div>
-        <div class="steps" style="max-width:none">
-          <div class="step"><h4>Open connector settings</h4><p>In ChatGPT, go to <b>Settings → Connectors</b> (you'll need a plan with custom connectors / developer mode enabled), then <b>Create</b> a new connector.</p></div>
-          <div class="step"><h4>Paste the MCP server URL</h4>
-            <div class="codeblock"><pre class="wrap-code">https://monad-mcp.fly.dev/mcp</pre><button class="copy">Copy</button></div>
-            <p>Name it <code class="inl">monad</code>. No authentication is required — the hosted endpoint is read-only.</p>
-          </div>
-          <div class="step"><h4>Use it in a chat</h4><p>Enable the connector for your conversation and ask for a Monad balance, token price, or portfolio. ChatGPT will call the read tools directly.</p></div>
-        </div>
-        <div class="callout warn"><strong>Read-only.</strong> Custom connectors are great for reads. Transfers and swaps need a signer the hosted URL doesn't carry — run your own server for writes (<a href="dev.html">developer guide</a>).</div>
-      </div>
-
-      <!-- claude.ai -->
-      <div class="tab-panel" id="tab-claudeai" role="tabpanel" aria-labelledby="t-claudeai">
-        <h3>claude.ai <span class="badge-mini">custom connector</span></h3>
-        <p class="desc">The web/app version of Claude connects to remote MCP servers the same way — add a custom connector and paste the URL.</p>
-
-        <div class="substep">Steps</div>
-        <div class="steps" style="max-width:none">
-          <div class="step"><h4>Open Connectors</h4><p>Go to <b>Settings → Connectors → Add custom connector</b> (available on plans that support custom connectors).</p></div>
-          <div class="step"><h4>Paste the MCP server URL</h4>
-            <div class="codeblock"><pre class="wrap-code">https://monad-mcp.fly.dev/mcp</pre><button class="copy">Copy</button></div>
-            <p>Give it the name <code class="inl">monad</code> and save. No auth needed.</p>
-          </div>
-          <div class="step"><h4>Ask away</h4><p>Toggle the connector on and ask for balances, prices, token info, or a portfolio.</p></div>
-        </div>
+        <div class="substep">2 · Try it</div>
+        <div class="try-card">Restart Claude Code, then ask: <strong>What's the Monad balance of 0x7E274bCA90eEfa81761080e074AFb1D354a0c552?</strong></div>
       </div>
     </div>
 
-    <p class="note" style="text-align:center;margin-top:16px">Verify the endpoint is alive: <code class="inl">curl https://monad-mcp.fly.dev/health</code> → <code class="inl">{"ok":true,…,"privy_enabled":false}</code>. The hosted machine sleeps after ~5&nbsp;min idle, so the first call may cold-start.</p>
+    <p class="note" style="text-align:center;margin-top:16px">The hosted connector may take a few seconds to wake up if it has been idle.</p>
   </div>
 </section>
 
@@ -207,7 +198,7 @@ open ~/Library/Application\ Support/Claude/claude_desktop_config.json
         <div class="note">RPC: <span id="rpcurl"></span> · token balance needs an ERC-20 contract in the 2nd box (format: <code class="inl">holder,token</code>).</div>
       </div>
     </div>
-    <p class="note" style="text-align:center;margin-top:14px">Want the full thing — transfers, swaps, staking? That's the <b>write</b> side, gated by Privy approval. <a href="dev.html">Run your own server →</a></p>
+    <p class="note" style="text-align:center;margin-top:14px">This is the same live Monad data your AI app gets through the hosted connector.</p>
   </div>
 </section>
 
@@ -229,7 +220,7 @@ open ~/Library/Application\ Support/Claude/claude_desktop_config.json
     <div class="grid">
       <div class="card"><h3>Can the agent steal my funds?</h3><p>No. The agent does not get a private key. It proposes unsigned transactions; you approve them in the browser unless the action fits inside a session-key grant you already approved.</p></div>
       <div class="card"><h3>Can I try it without setup?</h3><p>Yes. The hosted endpoint exposes read tools for balances, portfolio data, token lookup, transaction history, receipts, and contract reads.</p></div>
-      <div class="card"><h3>What requires self-hosting?</h3><p>Any write action: transfers, swaps, staking, lending, contract writes, bridge execution, x402 payments, and session-key grants.</p></div>
+      <div class="card"><h3>Do I need to host anything?</h3><p>No. The public setup uses the hosted Monad connector. Add the URL in Claude or ChatGPT and start asking questions.</p></div>
       <div class="card"><h3>How do approvals work?</h3><p>The server stores a transaction request and returns an approval URL. You review the summary, approve or reject, and the agent polls for the final status.</p></div>
       <div class="card"><h3>What are session keys?</h3><p>Scoped grants for limited autonomy. You can cap spend, set an expiry, restrict target addresses, and restrict function selectors.</p></div>
       <div class="card"><h3>Should I use mainnet funds?</h3><p>Start on testnet. Before mainnet use, verify Privy setup, protocol addresses, token addresses, approval URLs, and session-key limits.</p></div>
@@ -238,34 +229,9 @@ open ~/Library/Application\ Support/Claude/claude_desktop_config.json
   </div>
 </section>
 
-<!-- ===================== DEVELOPERS ===================== -->
-<section id="developers">
-  <div class="wrap">
-    <p class="eyebrow">For developers</p>
-    <h2>Run your own server</h2>
-    <p class="lead">The hosted URL is read-only on purpose. To let your agent <b>sign and send</b> — transfers, swaps, staking, session keys — run monad-mcp yourself with a Privy app. It's the dogfood path.</p>
-    <div class="dev-teaser">
-      <div>
-        <h3 style="margin:0 0 6px;font-size:19px">The dev version — full read <i>and</i> write</h3>
-        <p style="color:var(--muted);margin:0;font-size:14.5px">Clone, build, point Privy at it, and have a real conversation that moves real testnet MON. The complete walkthrough — prereqs, bootstrap, the approval webserver, session keys, and deploying your own hosted endpoint — lives on the developer page.</p>
-        <ul class="checks">
-          <li>Local stdio + HTTP approval server</li>
-          <li>Privy-backed signing &amp; one-time approval URLs</li>
-          <li>Session-key grants for hands-off agent loops</li>
-          <li>Deploy your own write-enabled endpoint to Fly.io</li>
-        </ul>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:10px;align-items:stretch">
-        <a class="btn primary" href="dev.html">Open the developer guide →</a>
-        <a class="btn ghost" href="https://github.com/pareen/monad-mcp">View source on GitHub ↗</a>
-      </div>
-    </div>
-  </div>
-</section>
-
 <footer class="site">
   <div class="wrap">
-    <p>Open source · MIT · <a href="https://github.com/pareen/monad-mcp">github.com/pareen/monad-mcp</a> · <a href="dev.html">Developer guide</a> · <a href="https://github.com/pareen/monad-mcp/blob/main/docs/FAQ.md">FAQ</a></p>
+    <p>Open source · MIT · <a href="https://github.com/pareen/monad-mcp">github.com/pareen/monad-mcp</a> · <a href="https://github.com/pareen/monad-mcp/blob/main/docs/FAQ.md">FAQ</a></p>
     <p>This is an experimental product — use at your own risk.</p>
     <p>Not affiliated with Monad Foundation or Privy. Verify all contract addresses before mainnet use. Nothing here is financial advice.</p>
   </div>
