@@ -197,7 +197,7 @@ interface SkillPlugin {
 }
 ```
 
-Plugins are loaded statically in `src/plugins/index.ts` for v1. The interface is designed so they can be loaded out-of-process later (a la Base MCP's markdown specs).
+Plugins are loaded statically in `src/plugins/index.ts` for v1. The interface is designed so they can be loaded out-of-process later (e.g. as external markdown specs).
 
 ## Tradeoffs
 

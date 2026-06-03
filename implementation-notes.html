@@ -24,7 +24,7 @@
 </head>
 <body>
   <h1>monad-mcp — implementation notes</h1>
-  <p class="meta">Spec: build a Monad MCP server inspired by Base MCP, with Privy as the wallet provider. Captured during the initial build session.</p>
+  <p class="meta">Spec: build a Monad MCP server with Privy as the wallet provider. Captured during the initial build session.</p>
 
   <h2>1. Design decisions</h2>
 
@@ -44,7 +44,7 @@
   <p>Initial design had a single <code>registerTool</code> that called the MCP SDK's <code>mcp.registerTool</code> with a wrapped handler. To unit-test the wrapper logic (auth gating, network resolution, zod validation, error formatting) without spinning up a transport, I factored the wrapper into a plain async function <code>runTool(def, args, server, authInfo)</code>. <code>registerTool</code> is now a 3-line shim. Tests call <code>runTool</code> directly. Net win for test surface area.</p>
 
   <h3><span class="tag tag-decision">decision</span>Plugins as static imports, not dynamic discovery</h3>
-  <p>Base MCP's plugin guide describes a markdown-spec approach. For a TypeScript-first server, static imports give better type safety, simpler bundling, and trivial registration. If we ever want third parties to ship plugins as separate npm packages, the <code>SkillPlugin</code> interface is already designed for it.</p>
+  <p>One alternative is a markdown-spec approach to plugins. For a TypeScript-first server, static imports give better type safety, simpler bundling, and trivial registration. If we ever want third parties to ship plugins as separate npm packages, the <code>SkillPlugin</code> interface is already designed for it.</p>
 
   <h3><span class="tag tag-decision">decision</span>Uniswap addresses are env-driven, default to <code>null</code></h3>
   <p>I don't have verified Uniswap v3 contract addresses for Monad in this build session. Rather than ship guessed addresses that could route funds to the wrong place, the plugin reads addresses from <code>UNISWAP_*_QUOTER_V2</code> and <code>UNISWAP_*_SWAP_ROUTER_02</code> env vars. If unset, write tools fail loud with a configuration error; read tools return a clear "not configured" message.</p>
@@ -52,7 +52,7 @@
   <h2>2. Deviations from the spec</h2>
 
   <h3><span class="tag tag-deviation">deviation</span><code>get_transaction_history</code> only returns ERC-20 Transfer events</h3>
-  <p>Spec said "view transaction history" matching Base MCP. Without a stable Monad block-explorer API I scoped this to ERC-20 Transfer event logs over a bounded block range (default 5k blocks). The response always includes an explorer URL for the authoritative full history. To upgrade later: integrate Monad's explorer API or use Envio/Goldsky-style indexed data.</p>
+  <p>Spec said "view transaction history." Without a stable Monad block-explorer API I scoped this to ERC-20 Transfer event logs over a bounded block range (default 5k blocks). The response always includes an explorer URL for the authoritative full history. To upgrade later: integrate Monad's explorer API or use Envio/Goldsky-style indexed data.</p>
 
   <h3><span class="tag tag-deviation">deviation</span>Approval page does not embed Privy web SDK</h3>
   <p>The HTML page renders the tx summary, asset diff, and approve/reject buttons. On approve, it POSTs to the server, which does the signing via Privy server SDK. The original architecture sketch described a browser-side Privy web SDK login + sign. Deferred to Phase 2 — current path works headless, easier to test, and the public surface (URL contract) doesn't change.</p>
@@ -63,7 +63,7 @@
   <h2>3. Tradeoffs considered</h2>
 
   <h3><span class="tag tag-tradeoff">tradeoff</span>WalletConnect vs. embedded wallet</h3>
-  <p>Earlier discussion: should the agent talk to the user's existing wallet (MetaMask/Rabby via WalletConnect) or to a Privy embedded wallet? Picked embedded wallet to match Base MCP's UX — one-click approval URL, no separate wallet install required, hosted approval page mirrors Base Account's flow. WalletConnect could be added as a separate auth strategy if needed.</p>
+  <p>Earlier discussion: should the agent talk to the user's existing wallet (MetaMask/Rabby via WalletConnect) or to a Privy embedded wallet? Picked embedded wallet for the smoothest UX — one-click approval URL, no separate wallet install required, hosted approval page handles signing inline. WalletConnect could be added as a separate auth strategy if needed.</p>
 
   <h3><span class="tag tag-tradeoff">tradeoff</span>Memory store vs. Postgres for stored requests</h3>
   <p>Picked in-memory for v1 — single-process dev ergonomics. The <code>RequestStore</code> interface is the swap-in point. Production multi-replica deployment will need Postgres (or Redis); the public tool surface doesn't change.</p>

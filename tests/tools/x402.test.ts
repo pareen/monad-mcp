@@ -59,7 +59,7 @@ describe("pay_for_service tool", () => {
         accepts: [
           {
             scheme: "exact",
-            network: "base", // wrong network
+            network: "ethereum", // wrong network
             maxAmountRequired: "1000",
             resource: "https://example.com/paid",
             asset: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
