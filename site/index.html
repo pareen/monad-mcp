@@ -4,10 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>monad-mcp — connect Monad to Claude & ChatGPT</title>
-<meta name="description" content="Give Claude or ChatGPT a Monad wallet. Paste one URL or run one command to let your AI agent check balances, transfer, swap, lend, stake, bridge, and pay on Monad — keys held by Privy, every write behind your approval." />
+<meta name="description" content="Give Claude or ChatGPT a Monad wallet. Paste one URL or run one command to let your AI agent check balances, transfer, swap, lend, stake, bridge, and pay on Monad — wallet keys held by Privy, every write behind your approval." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23836ef9'/%3E%3C/svg%3E" />
 <meta property="og:title" content="monad-mcp — connect Monad to Claude & ChatGPT" />
-<meta property="og:description" content="Paste one URL to give your AI agent a Monad wallet: balances, transfers, swaps, staking, bridging — keys with Privy, every write behind your approval." />
+<meta property="og:description" content="Paste one URL to give your AI agent a Monad wallet: balances, transfers, swaps, staking, bridging — wallet keys with Privy, every write behind your approval." />
 <meta property="og:type" content="website" />
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -20,6 +20,7 @@
       <a href="#connect">Connect</a>
       <a href="#demo" class="hide-sm">Live demo</a>
       <a href="#tools" class="hide-sm">Tools</a>
+      <a href="#faq" class="hide-sm">FAQ</a>
       <a href="dev.html">Developers</a>
       <a href="https://github.com/pareen/monad-mcp">GitHub ↗</a>
     </nav>
@@ -30,7 +31,7 @@
   <div class="hero">
     <span class="badge"><span class="live"></span> Live hosted endpoint — connect in ~30 seconds</span>
     <h1>Give <span class="grad">Claude &amp; ChatGPT</span><br/>a Monad wallet</h1>
-    <p class="sub">monad-mcp is an MCP server that plugs the Monad blockchain into your AI agent. Paste one URL — your agent can read balances, prices, and portfolios instantly. Unlock transfers, swaps, staking, lending, and bridging behind your approval. Keys stay with Privy; the server never holds one.</p>
+    <p class="sub">monad-mcp is an MCP server that plugs the Monad blockchain into your AI agent. Paste one URL — your agent can read balances, prices, and portfolios instantly. Unlock transfers, swaps, staking, lending, and bridging behind your approval. Wallet keys stay with Privy.</p>
     <div class="cta">
       <a class="btn primary" href="#connect">⚡ Connect your client</a>
       <a class="btn ghost" href="#demo">▶ Try the live demo</a>
@@ -39,7 +40,7 @@
       <div class="kpi"><div class="n">46</div><div class="l">agent tools</div></div>
       <div class="kpi"><div class="n">5</div><div class="l">DeFi plugins</div></div>
       <div class="kpi"><div class="n">1</div><div class="l">paste to connect</div></div>
-      <div class="kpi"><div class="n">0</div><div class="l">keys on the server</div></div>
+      <div class="kpi"><div class="n">0</div><div class="l">wallet keys on server</div></div>
     </div>
   </div>
 </div>
@@ -154,7 +155,7 @@ open ~/Library/Application\ Support/Claude/claude_desktop_config.json
     <h2>Built for agents, not humans clicking buttons</h2>
     <p class="lead">A person will approve every transaction. An agent running a strategy at 2am won't. The hard part isn't wrapping an RPC — it's letting an agent act autonomously inside a boundary you trust.</p>
     <div class="grid">
-      <div class="card"><span class="ic">🔑</span><h3>Keys never touch the server</h3><p>Privy holds the private key in a TEE. The MCP server builds unsigned transactions and hands them off — it can never move funds on its own.</p></div>
+      <div class="card"><span class="ic">🔑</span><h3>Wallet keys stay with Privy</h3><p>Privy holds the wallet private key in a TEE. The MCP server builds unsigned transactions and hands them off — it can never move funds without approval or a scoped grant.</p></div>
       <div class="card"><span class="ic">✋</span><h3>Approval by default</h3><p>Write actions return a one-time approval link with a simulated asset diff. You review and confirm; the agent polls for the tx hash.</p></div>
       <div class="card"><span class="ic">⚡</span><h3>Session keys for autonomy</h3><p>Authorize a scoped budget once — spend cap, expiry, recipient + function allowlists — and the agent transacts within it, no per-tx clicks.</p></div>
       <div class="card"><span class="ic">🛡️</span><h3>Defense in depth</h3><p>Each grant is mirrored as a Privy wallet policy, so Privy itself refuses transactions outside the envelope — even if the server is compromised.</p></div>
@@ -220,6 +221,23 @@ open ~/Library/Application\ Support/Claude/claude_desktop_config.json
   </div>
 </section>
 
+<!-- ===================== FAQ ===================== -->
+<section id="faq">
+  <div class="wrap">
+    <p class="eyebrow">Common questions</p>
+    <h2>What people ask first</h2>
+    <div class="grid">
+      <div class="card"><h3>Can the agent steal my funds?</h3><p>No. The agent does not get a private key. It proposes unsigned transactions; you approve them in the browser unless the action fits inside a session-key grant you already approved.</p></div>
+      <div class="card"><h3>Can I try it without setup?</h3><p>Yes. The hosted endpoint exposes read tools for balances, portfolio data, token lookup, transaction history, receipts, and contract reads.</p></div>
+      <div class="card"><h3>What requires self-hosting?</h3><p>Any write action: transfers, swaps, staking, lending, contract writes, bridge execution, x402 payments, and session-key grants.</p></div>
+      <div class="card"><h3>How do approvals work?</h3><p>The server stores a transaction request and returns an approval URL. You review the summary, approve or reject, and the agent polls for the final status.</p></div>
+      <div class="card"><h3>What are session keys?</h3><p>Scoped grants for limited autonomy. You can cap spend, set an expiry, restrict target addresses, and restrict function selectors.</p></div>
+      <div class="card"><h3>Should I use mainnet funds?</h3><p>Start on testnet. Before mainnet use, verify Privy setup, protocol addresses, token addresses, approval URLs, and session-key limits.</p></div>
+    </div>
+    <p class="note" style="text-align:center;margin-top:18px">Full FAQ: <a href="https://github.com/pareen/monad-mcp/blob/main/docs/FAQ.md">docs/FAQ.md</a></p>
+  </div>
+</section>
+
 <!-- ===================== DEVELOPERS ===================== -->
 <section id="developers">
   <div class="wrap">
@@ -247,7 +265,7 @@ open ~/Library/Application\ Support/Claude/claude_desktop_config.json
 
 <footer class="site">
   <div class="wrap">
-    <p>Open source · MIT · <a href="https://github.com/pareen/monad-mcp">github.com/pareen/monad-mcp</a> · <a href="dev.html">Developer guide</a></p>
+    <p>Open source · MIT · <a href="https://github.com/pareen/monad-mcp">github.com/pareen/monad-mcp</a> · <a href="dev.html">Developer guide</a> · <a href="https://github.com/pareen/monad-mcp/blob/main/docs/FAQ.md">FAQ</a></p>
     <p>This is an experimental product — use at your own risk.</p>
     <p>Not affiliated with Monad Foundation or Privy. Verify all contract addresses before mainnet use. Nothing here is financial advice.</p>
   </div>
