@@ -30,7 +30,11 @@ describe("get_transaction_history windowing (ISSUE-002)", () => {
       },
     });
 
-    const res = await runTool(getTransactionHistoryTool, { address: ADDR, lookback_blocks: 5_000 }, ctx);
+    const res = await runTool(
+      getTransactionHistoryTool,
+      { address: ADDR, lookback_blocks: 5_000 },
+      ctx,
+    );
     const s = res.structuredContent as { from_block: string; to_block: string; events: unknown[] };
 
     // Did not throw, and covered the full requested range.
@@ -64,7 +68,11 @@ describe("get_transaction_history windowing (ISSUE-002)", () => {
       },
     });
 
-    const res = await runTool(getTransactionHistoryTool, { address: ADDR, lookback_blocks: 400 }, ctx);
+    const res = await runTool(
+      getTransactionHistoryTool,
+      { address: ADDR, lookback_blocks: 400 },
+      ctx,
+    );
     const s = res.structuredContent as { skipped_block_windows?: number; events: unknown[] };
     expect(s.skipped_block_windows).toBe(1);
     expect(Array.isArray(s.events)).toBe(true);
