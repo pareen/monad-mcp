@@ -1,0 +1,33 @@
+name: Release to npm
+
+# Publishes monad-mcp to npm when you push a version tag (e.g. v0.1.0).
+# One-time setup: add an automation token from npmjs.com as the repo secret
+# NPM_TOKEN  (Settings → Secrets and variables → Actions → New repository secret).
+#
+# Cut a release:
+#   npm version patch    # bumps package.json + creates the git tag
+#   git push --follow-tags
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

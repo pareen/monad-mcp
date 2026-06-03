@@ -50,10 +50,15 @@ export function buildServerContext(config: Config = loadConfig()): ServerContext
   };
 }
 
-export function buildServer(options: BuildServerOptions = {}): BuiltServer {
-  const config = options.config ?? loadConfig();
-  const context = buildServerContext(config);
-
+/**
+ * Build a fresh McpServer bound to an existing context. The context (stores,
+ * clients, auth) is shared; the McpServer is not. The Streamable-HTTP transport
+ * keeps single-session state per instance, so a stateless multi-client server
+ * must mint a new McpServer + transport per request (see server-http.ts) rather
+ * than reuse one — otherwise every client after the first hits "already
+ * initialized". Tool handlers read shared state through `context`.
+ */
+export function buildMcpServer(context: ServerContext): McpServer {
   const mcp = new McpServer(
     {
       name: "monad-mcp",
@@ -71,6 +76,13 @@ export function buildServer(options: BuildServerOptions = {}): BuiltServer {
   registerCoreTools(mcp, context);
   registerPlugins(mcp, context);
 
+  return mcp;
+}
+
+export function buildServer(options: BuildServerOptions = {}): BuiltServer {
+  const config = options.config ?? loadConfig();
+  const context = buildServerContext(config);
+  const mcp = buildMcpServer(context);
   return { mcp, context };
 }
 
