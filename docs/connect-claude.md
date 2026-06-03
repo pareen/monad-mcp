@@ -1,139 +1,78 @@
-# Connect monad-mcp to Claude (or any MCP client)
+# Connect monad-mcp to Claude or ChatGPT
 
-The fastest ways to point your AI agent at monad-mcp. **Read tools work with zero
-setup** — balances, prices, token info, contract reads, transaction history. You
-only need a Privy app if you want the agent to *send* transactions (transfer,
-swap, stake, etc.); see [Unlocking write tools](#unlocking-write-tools) at the end.
+You don't need to install anything, open a terminal, or edit any files. You paste
+**one web address** into your AI app's settings, and it can read live data from the
+[Monad](https://monad.xyz) blockchain — wallet balances, token prices, portfolios,
+transaction history, token safety checks.
 
-Pick whichever row matches you:
+> **The one address you need:**
+>
+> ```
+> https://monad-mcp.fly.dev/mcp
+> ```
+>
+> It's a public, **read-only** endpoint — safe to paste anywhere. It can look up
+> anything on-chain, but it can't move money (see [Sending transactions](#sending-transactions-writes)).
 
-| You want… | Use | Needs install? |
-|-----------|-----|----------------|
-| The quickest thing in Claude Code | [Option A — npx](#option-a--npx-one-liner-easiest) | No (npx downloads it) |
-| A shareable URL anyone can paste | [Option B — hosted URL](#option-b--hosted-url-read-only) | No |
-| Claude Desktop | [Option C — Claude Desktop](#option-c--claude-desktop) | No (npx) |
-| To hack on the code | [Option D — from source](#option-d--from-source) | Yes (clone + build) |
+Pick your app:
 
----
-
-## Option A — npx one-liner (easiest)
-
-In a terminal, with [Claude Code](https://claude.com/claude-code) installed:
-
-```bash
-claude mcp add monad -- npx -y monad-mcp
-```
-
-That's it. Restart Claude Code and ask:
-
-> What's the balance of `0x7E274bCA90eEfa81761080e074AFb1D354a0c552` on Monad testnet?
-
-To default to mainnet instead of testnet, add an env var:
-
-```bash
-claude mcp add monad --env MONAD_DEFAULT_NETWORK=mainnet -- npx -y monad-mcp
-```
-
-Remove it any time with `claude mcp remove monad`.
+- [Claude Desktop](#claude-desktop) — paste a connector
+- [ChatGPT](#chatgpt) — paste a connector
+- [Claude Code (terminal)](#claude-code-terminal) — one command, for developers
 
 ---
 
-## Option B — hosted URL (read-only)
+## Claude Desktop
 
-There's a live public HTTPS endpoint you can hand to anyone — no install at all:
+**You'll need:** the Claude desktop app (macOS or Windows) and a paid Claude plan
+(Pro, Max, Team, or Enterprise — custom connectors aren't on the free plan).
 
-```
-https://monad-mcp.fly.dev/mcp
-```
+1. Open **Claude Desktop**.
+2. Click your name / the **gear icon → Settings**.
+3. Go to **Connectors** in the sidebar.
+4. Click **Add custom connector** (you may need **Advanced** to see it).
+5. Fill in:
+   - **Name:** `Monad`
+   - **URL:** `https://monad-mcp.fly.dev/mcp`
+6. Click **Add**, then **Enable** the connector if it isn't already.
 
-**Claude Code:**
+That's it — no restart needed. Skip to [Check it worked](#check-it-worked).
 
-```bash
-claude mcp add --transport http monad https://monad-mcp.fly.dev/mcp
-```
-
-**Claude Desktop / claude.ai / ChatGPT (custom connector):**
-Add a connector and paste `https://monad-mcp.fly.dev/mcp`.
-
-This public endpoint is **read-only** — write tools return "requires a connected
-wallet" because no signing keys are attached. That's intentional: it's safe to
-share. (To run your *own* endpoint with write access, deploy with Privy creds.)
-
-Sanity-check it's alive:
-
-```bash
-curl https://monad-mcp.fly.dev/health
-# {"ok":true,"version":"0.1.0","default_network":"testnet","privy_enabled":false}
-```
+> Labels move around between versions; if you don't see "Add custom connector,"
+> look for **Connectors → Add** or **Developer / Advanced** in Settings.
 
 ---
 
-## Option C — Claude Desktop
+## ChatGPT
 
-Open the config file:
+**You'll need:** ChatGPT on a paid plan (Plus, Pro, Business, or Enterprise) —
+custom connectors aren't available on the free plan.
 
-```bash
-# macOS
-open ~/Library/Application\ Support/Claude/claude_desktop_config.json
-# Linux:   ~/.config/Claude/claude_desktop_config.json
-# Windows: %APPDATA%/Claude/claude_desktop_config.json
-```
+1. Open **ChatGPT** (desktop app or [chatgpt.com](https://chatgpt.com)).
+2. Click your profile → **Settings**.
+3. Go to **Connectors** → open **Advanced** and turn on **Developer mode**
+   (this is what lets you add your own connector). You only do this once.
+4. Back on **Connectors**, click **Create** / **Add**.
+5. Fill in:
+   - **Name:** `Monad`
+   - **MCP Server URL:** `https://monad-mcp.fly.dev/mcp`
+   - **Authentication:** None
+6. Save. In a new chat, open the **+ / tools** menu and make sure **Monad** is on.
 
-Add a `monad` entry (keep any servers you already have):
-
-```json
-{
-  "mcpServers": {
-    "monad": {
-      "command": "npx",
-      "args": ["-y", "monad-mcp"],
-      "env": {
-        "MONAD_DEFAULT_NETWORK": "testnet"
-      }
-    }
-  }
-}
-```
-
-Quit Claude Desktop completely (**⌘Q** on macOS — closing the window isn't enough)
-and reopen it. Then: *"What MCP servers are connected?"* — you should see `monad`.
+> ChatGPT's connector screens are still labelled "beta" and shift often. The two
+> things that matter: enable **Developer mode**, and paste the URL above with auth
+> set to **None**.
 
 ---
 
-## Option D — from source
+## Check it worked
 
-For contributors, or to run your own modified build:
+In a new conversation, ask:
 
-```bash
-git clone https://github.com/pareen/monad-mcp.git
-cd monad-mcp
-npm install
-npm run build
-```
+> What tools does the Monad connector give you?
 
-Then point Claude Code at the built entrypoint (use the **absolute** path):
-
-```bash
-claude mcp add monad -- node /absolute/path/to/monad-mcp/dist/index.js
-```
-
-…or the equivalent Claude Desktop config:
-
-```json
-{
-  "mcpServers": {
-    "monad": {
-      "command": "node",
-      "args": ["/absolute/path/to/monad-mcp/dist/index.js"],
-      "env": { "MONAD_DEFAULT_NETWORK": "testnet" }
-    }
-  }
-}
-```
-
----
-
-## First prompts to try (all read-only)
+You should see it list ~30 Monad tools. Then try a real lookup — these touch live
+testnet data and move no money:
 
 > What's the balance of `0x7E274bCA90eEfa81761080e074AFb1D354a0c552` on Monad testnet?
 
@@ -143,24 +82,58 @@ claude mcp add monad -- node /absolute/path/to/monad-mcp/dist/index.js
 
 > Get a portfolio for `0x7E274bCA90eEfa81761080e074AFb1D354a0c552`.
 
+If nothing shows up, double-check the URL is exactly `https://monad-mcp.fly.dev/mcp`
+and that the connector is **enabled**. You can confirm the server itself is alive
+by opening <https://monad-mcp.fly.dev/health> in a browser — it should say `"ok":true`.
+
 ---
 
-## Unlocking write tools
+## Claude Code (terminal)
 
-Transfers, swaps, staking, and other state-changing tools need a
-[Privy](https://dashboard.privy.io) embedded wallet so the *user* (never the
-agent) signs. Setup is more involved — Privy app, a one-time
-`npm run bootstrap:auth-key`, and the approval webserver running. The full
-walkthrough is in [claude-desktop.md](./claude-desktop.md). Pass the Privy
-credentials as env vars on whichever option above you chose, e.g.:
+For developers who live in [Claude Code](https://claude.com/claude-code), skip the
+UI and add it in one line:
 
 ```bash
-claude mcp add monad \
-  --env PRIVY_APP_ID=clxxxx \
-  --env PRIVY_APP_SECRET=xxxx \
-  --env MONAD_DEFAULT_NETWORK=testnet \
-  -- npx -y monad-mcp
+claude mcp add --transport http monad https://monad-mcp.fly.dev/mcp
 ```
 
-Until those are set, the server runs happily in read-only mode and write tools
-return a clear "sign in via Privy" message rather than failing silently.
+Or run the package locally instead of hitting the hosted endpoint (downloads on
+first use, needs Node ≥ 20):
+
+```bash
+claude mcp add monad -- npx -y monad-mcp
+```
+
+Remove either with `claude mcp remove monad`.
+
+---
+
+## Sending transactions (writes)
+
+The public endpoint above is **read-only on purpose** — it has no wallet keys
+attached, so it's safe to share. Ask it to send MON or swap tokens and it will
+politely refuse with a "requires a connected wallet" message.
+
+A one-tap "sign in and send" experience (you log in, a wallet is created for you,
+and you approve each transaction in your browser) is in progress. Until it lands,
+write tools require running your **own** instance with [Privy](https://dashboard.privy.io)
+signing credentials:
+
+- Local setup for Claude Desktop / Claude Code: [claude-desktop.md](./claude-desktop.md)
+- Hosting your own endpoint: [DEPLOY.md](./DEPLOY.md)
+
+---
+
+## Hack on it / run your own
+
+Clone, build, and point a client at your own build:
+
+```bash
+git clone https://github.com/pareen/monad-mcp.git
+cd monad-mcp
+npm install
+npm run build
+claude mcp add monad -- node /absolute/path/to/monad-mcp/dist/index.js
+```
+
+Full deploy + publish runbook: [DEPLOY.md](./DEPLOY.md).
