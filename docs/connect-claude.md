@@ -102,7 +102,7 @@ and reopen it. Then: *"What MCP servers are connected?"* — you should see `mon
 
 ## Option D — from source
 
-For contributors, or before the npm package is published:
+For contributors, or to run your own modified build:
 
 ```bash
 git clone https://github.com/pareen/monad-mcp.git
