@@ -14,7 +14,7 @@ export const monadMainnet = defineChain({
     default: { http: [DEFAULT_MAINNET_RPC] },
   },
   blockExplorers: {
-    default: { name: "Monad Explorer", url: "https://explorer.monad.xyz" },
+    default: { name: "Monad Explorer", url: "https://monadexplorer.com" },
   },
   testnet: false,
 });
