@@ -104,7 +104,7 @@ async function main() {
     app.post(
       "/mcp",
       requireBearerAuth({
-        verifier: privyTokenVerifier(auth),
+        verifier: privyTokenVerifier(auth, logger),
         resourceMetadataUrl,
       }),
       handleMcpPost,

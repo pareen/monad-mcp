@@ -238,12 +238,19 @@ function consent(deps: OAuthDeps): RequestHandler {
     const state = str(p.state);
 
     if (!token || !clientId || !redirectUri || !codeChallenge) {
+      deps.logger.warn("consent rejected: missing fields", {
+        has_token: Boolean(token),
+        has_client: Boolean(clientId),
+        has_redirect: Boolean(redirectUri),
+        has_challenge: Boolean(codeChallenge),
+      });
       jsonError(res, 400, "invalid_request", "Missing token or authorization parameters.");
       return;
     }
     // Re-validate the client + redirect — never trust values echoed by the browser.
     const client = verifyClientId(clientId, deps.oauthSecret);
     if (!client || !client.redirectUris.includes(redirectUri)) {
+      deps.logger.warn("consent rejected: client/redirect mismatch", { redirectUri });
       jsonError(res, 400, "invalid_request", "client_id / redirect_uri mismatch.");
       return;
     }
@@ -251,6 +258,9 @@ function consent(deps: OAuthDeps): RequestHandler {
     try {
       await deps.auth.verifyAccessToken(token);
     } catch (err) {
+      deps.logger.warn("consent rejected: privy token invalid", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       jsonError(
         res,
         401,
@@ -267,6 +277,7 @@ function consent(deps: OAuthDeps): RequestHandler {
     const url = new URL(redirectUri);
     url.searchParams.set("code", code);
     if (state) url.searchParams.set("state", state);
+    deps.logger.info("consent ok: auth code issued", { redirectUri, scope: SCOPES });
     res.json({ redirect: url.toString() });
   };
 }
@@ -281,6 +292,7 @@ function token(deps: OAuthDeps): RequestHandler {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const grantType = str(body.grant_type);
     if (grantType !== "authorization_code") {
+      deps.logger.warn("token rejected: unsupported grant_type", { grantType });
       jsonError(
         res,
         400,
@@ -294,22 +306,37 @@ function token(deps: OAuthDeps): RequestHandler {
     const redirectUri = str(body.redirect_uri);
     const clientId = str(body.client_id);
     if (!code || !verifier || !redirectUri) {
+      deps.logger.warn("token rejected: missing fields", {
+        has_code: Boolean(code),
+        has_verifier: Boolean(verifier),
+        has_redirect: Boolean(redirectUri),
+      });
       jsonError(res, 400, "invalid_request", "code, code_verifier and redirect_uri are required.");
       return;
     }
     const data = deps.codes.take(code);
     if (!data) {
+      // The single most likely multi-machine failure: the code was minted on a
+      // different instance than the one handling this /token call (in-memory
+      // store is per-process). Logged so it's diagnosable.
+      deps.logger.warn("token rejected: code not found (expired, reused, or wrong instance)");
       jsonError(res, 400, "invalid_grant", "Authorization code is invalid or expired.");
       return;
     }
     if (data.redirectUri !== redirectUri || (clientId && data.clientId !== clientId)) {
+      deps.logger.warn("token rejected: redirect/client mismatch vs code", { redirectUri });
       jsonError(res, 400, "invalid_grant", "redirect_uri / client_id does not match the code.");
       return;
     }
     if (!verifyPkceS256(verifier, data.codeChallenge)) {
+      deps.logger.warn("token rejected: PKCE verification failed");
       jsonError(res, 400, "invalid_grant", "PKCE verification failed.");
       return;
     }
+    deps.logger.info("token ok: access token issued", {
+      scope: data.scope,
+      expires_in: expiresInFromJwt(data.privyToken),
+    });
     res.json({
       access_token: data.privyToken,
       token_type: "Bearer",
