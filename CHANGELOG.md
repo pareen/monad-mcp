@@ -14,6 +14,9 @@ All notable changes to this project are documented here. Format loosely follows
 - Added a developer/self-host subpage (`site/dev.html`) — the write-enabled "dev
   version" walkthrough (Privy bootstrap, approval server, session keys, deploy your
   own endpoint) — and a summary section linking to it from the main page.
+- Added a public FAQ section and a longer `docs/FAQ.md` covering setup, security,
+  read-only hosted usage, self-hosted writes, session keys, plugins, and production
+  checks.
 - Extracted a shared stylesheet (`site/styles.css`) used by both pages.
 - Corrected the live demo's tool count to 46 (26 read / 20 write across 5 DeFi
   plugins) and fixed the dead mainnet explorer URL (`monadexplorer.com`).

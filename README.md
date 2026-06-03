@@ -24,7 +24,7 @@ claude mcp add monad -- npx -y monad-mcp                              # or run i
 ```
 
 The hosted endpoint is **read-only** by design (safe to share). Sending transactions
-needs your own Privy-signed instance for now — see [docs/connect-claude.md](docs/connect-claude.md#sending-transactions-writes) and [docs/DEPLOY.md](docs/DEPLOY.md).
+needs your own Privy-signed instance for now — see [docs/connect-claude.md](docs/connect-claude.md#sending-transactions-writes), [docs/FAQ.md](docs/FAQ.md) for common security/setup questions, and [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## What's in the box
 
