@@ -16,8 +16,9 @@ describe("canonical token registry", () => {
   });
 
   test("matches by name substring", () => {
+    // Monad's canonical Tether is USDT0; "tether" stays an alias.
     const t = findCanonicalToken("Tether", "mainnet");
-    expect(t?.symbol).toBe("USDT");
+    expect(t?.symbol).toBe("USDT0");
   });
 
   test("passes raw addresses through", () => {

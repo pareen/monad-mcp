@@ -62,7 +62,7 @@ describe("pay_for_service tool", () => {
             network: "ethereum", // wrong network
             maxAmountRequired: "1000",
             resource: "https://example.com/paid",
-            asset: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+            asset: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
             payTo: "0xabababababababababababababababababababab",
             maxTimeoutSeconds: 60,
           },
@@ -94,7 +94,7 @@ describe("pay_for_service tool", () => {
             network: "monad",
             maxAmountRequired: "10000000", // $10 USDC
             resource: "https://example.com/paid",
-            asset: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+            asset: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
             payTo: "0xabababababababababababababababababababab",
             maxTimeoutSeconds: 60,
           },
@@ -127,7 +127,7 @@ describe("pay_for_service tool", () => {
             network: "monad",
             maxAmountRequired: "50000", // $0.05 USDC raw
             resource: "https://example.com/paid",
-            asset: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+            asset: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
             payTo: "0xabababababababababababababababababababab",
             maxTimeoutSeconds: 60,
           },

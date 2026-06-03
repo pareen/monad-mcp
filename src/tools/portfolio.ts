@@ -1,4 +1,5 @@
 import { type PublicClient, formatUnits } from "viem";
+import type { Logger } from "../logger.js";
 import { type TokenInfo, canonicalTokensFor } from "../tokens/canonical.js";
 import { getTokenPairs, pickBestPair } from "../tokens/dexscreener.js";
 import { erc20Abi } from "./abi.js";
@@ -20,17 +21,31 @@ async function readBalance(
   client: PublicClient,
   token: TokenInfo,
   holder: `0x${string}`,
+  logger: Logger,
 ): Promise<bigint> {
   if (token.address === "native") {
     return client.getBalance({ address: holder });
   }
-  const balance = (await client.readContract({
-    address: token.address,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: [holder],
-  })) as bigint;
-  return balance;
+  // A canonical token may not be deployed on the target network (e.g. a
+  // mainnet address whose contract returns no data), in which case balanceOf
+  // reverts. Treat one bad token as a zero balance rather than failing the
+  // whole portfolio — the tool's contract is best-effort.
+  try {
+    const balance = (await client.readContract({
+      address: token.address,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [holder],
+    })) as bigint;
+    return balance;
+  } catch (err) {
+    logger.warn("get_portfolio: balanceOf read failed; treating as 0", {
+      symbol: token.symbol,
+      address: token.address,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return 0n;
+  }
 }
 
 async function readPriceUsd(
@@ -87,7 +102,9 @@ export const getPortfolioTool: ToolDefinition<typeof shape> = {
 
     // Read balances in parallel; prices serially-but-parallel (DexScreener
     // doesn't love bursts but a handful is fine).
-    const balances = await Promise.all(tokens.map((t) => readBalance(client, t, target)));
+    const balances = await Promise.all(
+      tokens.map((t) => readBalance(client, t, target, ctx.server.logger)),
+    );
     const prices = await Promise.all(tokens.map((t) => readPriceUsd(t, ctx.network)));
 
     const holdings: Holding[] = tokens

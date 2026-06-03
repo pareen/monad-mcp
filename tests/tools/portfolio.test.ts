@@ -60,7 +60,7 @@ describe("get_portfolio tool", () => {
         getBalance: vi.fn(async () => 2_000_000_000_000_000_000n) as never, // 2 MON
         readContract: vi.fn(async (params: { address: string }) => {
           // USDC at 1_000_000 (= 1.00 with 6 decimals)
-          if (params.address.toLowerCase() === "0xf817257fed379853cde0fa4f97ab987181b1e5ea") {
+          if (params.address.toLowerCase() === "0x754704bc059f8c67012fed69bc8a327a5aafb603") {
             return 1_000_000n;
           }
           return 0n;
@@ -80,6 +80,41 @@ describe("get_portfolio tool", () => {
     expect(symbols).toContain("MON");
     expect(symbols).toContain("USDC");
     expect(s.total_value_usd).toBeGreaterThan(0);
+  });
+
+  // Regression: ISSUE-003 — get_portfolio called balanceOf on every canonical
+  // token inside a single Promise.all with no per-token guard. On mainnet the
+  // WMON contract returns no data, so balanceOf reverted and the whole call
+  // threw a raw viem error instead of returning the readable holdings. A bad
+  // token must now be skipped (treated as zero), not fatal. Found by /qa on 2026-06-03.
+  test("one reverting balanceOf does not fail the whole portfolio", async () => {
+    const ctx = makeTestContext({
+      config: { defaultNetwork: "mainnet" },
+      publicClient: {
+        getBalance: vi.fn(async () => 2_000_000_000_000_000_000n) as never, // 2 MON
+        readContract: vi.fn(async (params: { address: string }) => {
+          // WMON reverts (contract returns no data); USDC has a balance.
+          if (params.address.toLowerCase() === "0x3bd359c1119da7da1d913d1c4d2b7c461115433a") {
+            throw new Error('balanceOf returned no data ("0x")');
+          }
+          if (params.address.toLowerCase() === "0x754704bc059f8c67012fed69bc8a327a5aafb603") {
+            return 1_000_000n; // 1 USDC
+          }
+          return 0n;
+        }) as never,
+      },
+    });
+    const res = await runTool(
+      getPortfolioTool,
+      { address: "0x1111111111111111111111111111111111111111" },
+      ctx,
+    );
+    const s = res.structuredContent as { holdings: Array<{ symbol: string }> };
+    const symbols = s.holdings.map((h) => h.symbol);
+    // Native MON + USDC still surface; the reverting WMON is silently skipped.
+    expect(symbols).toContain("MON");
+    expect(symbols).toContain("USDC");
+    expect(symbols).not.toContain("WMON");
   });
 
   test("include_zero=true returns all canonical tokens", async () => {
