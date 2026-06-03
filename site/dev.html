@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>monad-mcp — developer / self-host guide</title>
+<meta name="description" content="Run monad-mcp yourself to unlock write tools: clone, build, wire up Privy signing, the approval webserver, and session keys, then connect Claude Desktop to a server that can sign and send on Monad." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23836ef9'/%3E%3C/svg%3E" />
+<meta property="og:title" content="monad-mcp — developer / self-host guide" />
+<meta property="og:description" content="The dev version: run monad-mcp with Privy signing to unlock transfers, swaps, staking, and session keys behind your approval." />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site" id="hdr">
+  <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;padding:0">
+    <a class="logo" href="index.html"><span class="dot"></span> monad-mcp <span class="tag">DEV</span></a>
+    <nav>
+      <a href="index.html">← Connect (hosted)</a>
+      <a href="#prereqs" class="hide-sm">Prereqs</a>
+      <a href="#claude-desktop" class="hide-sm">Claude Desktop</a>
+      <a href="#deploy" class="hide-sm">Deploy</a>
+      <a href="https://github.com/pareen/monad-mcp">GitHub ↗</a>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap narrow" id="top">
+  <div class="hero" style="padding:56px 0 28px">
+    <span class="badge">🛠 Developer guide — the write-enabled dev version</span>
+    <h1>Run <span class="grad">monad-mcp</span> yourself</h1>
+    <p class="sub">The hosted endpoint is read-only on purpose. This is the dogfood path: get the server running on your laptop with a Privy signer, point Claude Desktop at it, and have a real conversation that moves real testnet MON — transfers, swaps, staking, and hands-off session keys.</p>
+    <div class="cta">
+      <a class="btn primary" href="#prereqs">Start with prereqs ↓</a>
+      <a class="btn ghost" href="index.html">Just want read tools? Use the hosted URL</a>
+    </div>
+  </div>
+</div>
+
+<div class="wrap narrow doc">
+
+  <div class="callout info" style="margin-top:8px">
+    <strong>Read-only is easier.</strong> If you only need balances, prices, portfolios, and contract reads, you don't need any of this — point your client at the hosted URL <code class="inl">https://monad-mcp.fly.dev/mcp</code> on the <a href="index.html#connect">connect page</a>. This guide is specifically for unlocking the <b>write</b> tools, which require a signer.
+  </div>
+
+  <div class="toc">
+    <strong>On this page</strong>
+    <ol>
+      <li><a href="#prereqs">Prerequisites</a></li>
+      <li><a href="#build">Clone &amp; build</a></li>
+      <li><a href="#privy">Privy &amp; signing setup</a></li>
+      <li><a href="#claude-desktop">Wire into Claude Desktop</a></li>
+      <li><a href="#http">Run the approval server</a></li>
+      <li><a href="#prompts">First prompts &amp; session keys</a></li>
+      <li><a href="#source">Connect from source (Claude Code)</a></li>
+      <li><a href="#deploy">Deploy your own endpoint</a></li>
+      <li><a href="#known">Known issues</a></li>
+      <li><a href="#iterate">Iterating</a></li>
+    </ol>
+  </div>
+
+  <!-- 0 prereqs -->
+  <div class="sec" id="prereqs">
+    <h2>1 · Prerequisites</h2>
+    <ul>
+      <li>Node ≥ 20.10</li>
+      <li>Claude Desktop installed and signed in</li>
+      <li>A Privy app created at <a href="https://dashboard.privy.io">dashboard.privy.io</a> (App ID + App Secret)</li>
+      <li>A funded testnet wallet (you'll provision one below, then fund it from the Monad faucet)</li>
+    </ul>
+    <p>Everything write-related hinges on Privy: the <em>user's</em> embedded wallet signs, never the agent and never the server. The server only ever builds unsigned transactions.</p>
+  </div>
+
+  <!-- 1 build -->
+  <div class="sec" id="build">
+    <h2>2 · Clone &amp; build</h2>
+    <div class="codeblock">
+      <pre><span class="tok-k">git</span> clone https://github.com/pareen/monad-mcp.git
+<span class="tok-k">cd</span> monad-mcp
+npm install
+npm run build</pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>This emits <code class="inl">dist/index.js</code> (the stdio entrypoint Claude Desktop spawns) and <code class="inl">dist/server-http.js</code> (the approval-flow webserver).</p>
+  </div>
+
+  <!-- 2 privy -->
+  <div class="sec" id="privy">
+    <h2>3 · Privy &amp; signing setup</h2>
+    <p>Copy <code class="inl">.env.example</code> to <code class="inl">.env</code> and add your Privy <code class="inl">PRIVY_APP_ID</code> and <code class="inl">PRIVY_APP_SECRET</code>. Then run the one-time bootstrap and provision a test user:</p>
+
+    <div class="substep" style="color:var(--faint);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin:18px 0 8px">Bootstrap the authorization key</div>
+    <div class="codeblock">
+      <pre><span class="tok-k">npm</span> run bootstrap:auth-key</pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>This writes <code class="inl">PRIVY_AUTHORIZATION_PRIVATE_KEY</code> and <code class="inl">PRIVY_KEY_QUORUM_ID</code> into your <code class="inl">.env</code> — the credentials that let the server request signatures from Privy as an additional signer.</p>
+
+    <div class="substep" style="color:var(--faint);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin:18px 0 8px">Provision &amp; fund a test user</div>
+    <div class="codeblock">
+      <pre><span class="tok-k">npm</span> run e2e:create-user</pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>Fund the printed address from the Monad testnet faucet so you have MON to move.</p>
+
+    <div class="callout warn"><strong>Run bootstrap first.</strong> Wallets minted before the bootstrap step (without <code class="inl">additional_signers</code>) can't be signed for from the server — they're stranded. Always run <code class="inl">npm run bootstrap:auth-key</code> before creating users.</div>
+  </div>
+
+  <!-- 3 claude desktop -->
+  <div class="sec" id="claude-desktop">
+    <h2>4 · Wire into Claude Desktop</h2>
+    <p>Open the Claude Desktop config:</p>
+    <div class="codeblock">
+      <pre><span class="tok-c"># macOS</span>
+open ~/Library/Application\ Support/Claude/claude_desktop_config.json
+<span class="tok-c"># Linux:   ~/.config/Claude/claude_desktop_config.json</span>
+<span class="tok-c"># Windows: %APPDATA%/Claude/claude_desktop_config.json</span></pre>
+      <button class="copy">Copy</button>
+    </div>
+
+    <p>Add the <code class="inl">monad</code> entry (keep any existing servers). The <code class="inl">--env-file</code> flag loads your <code class="inl">PRIVY_*</code> / <code class="inl">MONAD_*</code> / <code class="inl">NOTIFICATION_*</code> vars into the spawned process — without it, the server boots read-only and writes fail.</p>
+    <div class="codeblock">
+      <pre>{
+  <span class="tok-s">"mcpServers"</span>: {
+    <span class="tok-s">"monad"</span>: {
+      <span class="tok-s">"command"</span>: <span class="tok-s">"node"</span>,
+      <span class="tok-s">"args"</span>: [
+        <span class="tok-s">"--env-file=/absolute/path/to/monad-mcp/.env"</span>,
+        <span class="tok-s">"/absolute/path/to/monad-mcp/dist/index.js"</span>
+      ]
+    }
+  }
+}</pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>Quit Claude Desktop completely (<strong>⌘Q</strong> on macOS — closing the window isn't enough) and reopen it. Then ask <em>“What MCP servers are connected?”</em> — you should see <code class="inl">monad</code> with its read + write tools. If it's missing, check the log at <code class="inl">~/Library/Logs/Claude/mcp-server-monad.log</code> (usually a missing env var or a port conflict).</p>
+  </div>
+
+  <!-- 4 http -->
+  <div class="sec" id="http">
+    <h2>5 · Run the approval server</h2>
+    <p>Write tools return an approval URL like <code class="inl">http://localhost:8787/approve/&lt;id&gt;</code>. That page is served by the HTTP server — run it in a second terminal:</p>
+    <div class="codeblock">
+      <pre><span class="tok-k">npm</span> run start:http
+<span class="tok-c"># → monad-mcp http server listening on http://localhost:8787</span></pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>To approve from anywhere (not just your laptop's localhost), expose it and set the public base URL before booting:</p>
+    <div class="codeblock">
+      <pre><span class="tok-k">ngrok</span> http 8787
+<span class="tok-c"># then in .env:</span>
+PUBLIC_BASE_URL=<span class="tok-s">https://&lt;your-ngrok-domain&gt;</span></pre>
+      <button class="copy">Copy</button>
+    </div>
+  </div>
+
+  <!-- 5 prompts -->
+  <div class="sec" id="prompts">
+    <h2>6 · First prompts &amp; session keys</h2>
+    <p>Smoke tests first (read-only, no funds moved):</p>
+    <div class="codeblock">
+      <pre>What's the balance of 0x7E274bCA90eEfa81761080e074AFb1D354a0c552 on Monad testnet?
+List the canonical Monad tokens.
+Get a portfolio for 0x7E274bCA90eEfa81761080e074AFb1D354a0c552.</pre>
+      <button class="copy">Copy</button>
+    </div>
+
+    <p>Then a real transfer:</p>
+    <div class="codeblock">
+      <pre class="wrap-code">Send 0.001 MON from my wallet to 0x000000000000000000000000000000000000dEaD on Monad testnet.</pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>Claude calls <code class="inl">whoami</code> to find your wallet, then <code class="inl">transfer</code>, and hands you an approval URL. Click it, review the simulated asset diff, approve. Privy signs; Claude polls <code class="inl">poll_request</code> and reports the tx hash.</p>
+
+    <p>Now grant a session key for hands-off agent loops:</p>
+    <div class="codeblock">
+      <pre class="wrap-code">Grant the agent up to 0.05 MON for the next 24 hours, no recipient restriction.</pre>
+      <button class="copy">Copy</button>
+    </div>
+    <div class="callout ok">After you approve the grant once, subsequent transfers under the cap auto-execute and return tx hashes immediately — no second click. Each grant is also mirrored as a Privy wallet policy, so Privy itself refuses anything outside the budget, expiry, and allowlists you set.</div>
+  </div>
+
+  <!-- 6 from source / claude code -->
+  <div class="sec" id="source">
+    <h2>7 · Connect from source (Claude Code)</h2>
+    <p>Prefer Claude Code, or want to run your own modified build? Point it at the built entrypoint with an <strong>absolute</strong> path:</p>
+    <div class="codeblock">
+      <pre><span class="tok-k">claude</span> mcp add monad -- node /absolute/path/to/monad-mcp/dist/index.js</pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>Pass Privy credentials as env vars to unlock writes here too:</p>
+    <div class="codeblock">
+      <pre><span class="tok-k">claude</span> mcp add monad \
+  <span class="tok-k">--env</span> PRIVY_APP_ID=clxxxx \
+  <span class="tok-k">--env</span> PRIVY_APP_SECRET=xxxx \
+  <span class="tok-k">--env</span> MONAD_DEFAULT_NETWORK=testnet \
+  -- npx -y monad-mcp</pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>Until those are set, the server runs happily read-only and write tools return a clear “sign in via Privy” message rather than failing silently.</p>
+  </div>
+
+  <!-- 7 deploy -->
+  <div class="sec" id="deploy">
+    <h2>8 · Deploy your own endpoint</h2>
+    <p>To run a stable, always-on, write-enabled endpoint, deploy the HTTP transport (<code class="inl">dist/server-http.js</code>) with your Privy secrets. The repo ships a <code class="inl">Dockerfile</code> and <code class="inl">fly.toml</code>:</p>
+    <div class="codeblock">
+      <pre><span class="tok-k">fly</span> auth login
+fly launch --copy-config --now
+<span class="tok-c"># once it's up, add the Privy secrets to switch /mcp to write mode:</span>
+fly secrets set \
+  PRIVY_APP_ID=clxxxx \
+  PRIVY_APP_SECRET=xxxx \
+  PRIVY_AUTHORIZATION_PRIVATE_KEY=... \
+  PRIVY_KEY_QUORUM_ID=... \
+  PUBLIC_BASE_URL=<span class="tok-s">https://&lt;app-name&gt;.fly.dev</span></pre>
+      <button class="copy">Copy</button>
+    </div>
+    <p>With no Privy secrets the endpoint is an open, read-only gateway (safe to make public). Once <code class="inl">PRIVY_APP_ID</code>/<code class="inl">PRIVY_APP_SECRET</code> are present, <code class="inl">/mcp</code> switches to requiring an OAuth 2.1 bearer token and the approval flow goes live. The <code class="inl">Dockerfile</code> is plain, so Railway, Render, or Cloud Run work too. Full runbook — env vars, health checks, npm publish — is in <a href="https://github.com/pareen/monad-mcp/blob/main/docs/DEPLOY.md"><code class="inl">docs/DEPLOY.md</code></a>.</p>
+  </div>
+
+  <!-- 8 known issues -->
+  <div class="sec" id="known">
+    <h2>9 · Known issues</h2>
+    <ul>
+      <li><strong>stdio clients don't run the OAuth flow.</strong> Claude Desktop on stdio assumes the local user is the one running the server — fine in dev. In production you'd run the HTTP transport with bearer auth.</li>
+      <li><strong>Approval URLs need the HTTP server up.</strong> They only resolve while <code class="inl">npm run start:http</code> is running. For hands-off, run it as a launchd service (macOS) or systemd unit (Linux).</li>
+      <li><strong>Stranded wallets.</strong> Wallets minted before <code class="inl">bootstrap:auth-key</code> have no <code class="inl">additional_signers</code> and can't be signed for. Always bootstrap first.</li>
+    </ul>
+  </div>
+
+  <!-- 9 iterate -->
+  <div class="sec" id="iterate">
+    <h2>10 · Iterating</h2>
+    <p>Stdio MCP servers don't hot-reload: edit code → <code class="inl">npm run build</code> → restart Claude Desktop (⌘Q + reopen). For faster iteration without Claude Desktop, drive the stdio server directly with the MCP inspector:</p>
+    <div class="codeblock">
+      <pre><span class="tok-k">npx</span> @modelcontextprotocol/inspector dist/index.js</pre>
+      <button class="copy">Copy</button>
+    </div>
+  </div>
+
+</div>
+
+<footer class="site">
+  <div class="wrap">
+    <p><a href="index.html">← Back to connect (hosted, read-only)</a> · <a href="https://github.com/pareen/monad-mcp">github.com/pareen/monad-mcp</a></p>
+    <p>Open source · MIT · This is an experimental product — use at your own risk.</p>
+    <p>Not affiliated with Monad Foundation or Privy. Verify all contract addresses before mainnet use. Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script>
+const hdr = document.getElementById("hdr");
+addEventListener("scroll", () => hdr.classList.toggle("scrolled", scrollY > 8), { passive: true });
+document.querySelectorAll(".copy").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const pre = btn.parentElement.querySelector("pre");
+    const text = pre.innerText.replace(/\n+$/, "");
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const r = document.createRange(); r.selectNodeContents(pre);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      try { document.execCommand("copy"); } catch {}
+      s.removeAllRanges();
+    }
+    const old = btn.textContent;
+    btn.textContent = "Copied ✓"; btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = old; btn.classList.remove("copied"); }, 1400);
+  });
+});
+</script>
+</body>
+</html>
