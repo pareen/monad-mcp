@@ -1,7 +1,7 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
   "name": "io.github.pareen/monad-mcp",
-  "description": "Gateway to the Monad blockchain for AI agents — balances, transfers, swaps, lending, staking, bridging & x402 payments, with Privy-backed signing and session keys.",
+  "description": "Monad blockchain gateway for AI agents: balances, transfers, swaps, DeFi, with Privy signing.",
   "status": "active",
   "repository": {
     "url": "https://github.com/pareen/monad-mcp",
