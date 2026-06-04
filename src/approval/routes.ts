@@ -8,6 +8,7 @@ import {
   StoredRequestExpiredError,
   StoredRequestNotFoundError,
 } from "../errors.js";
+import type { StoredRequest } from "../store/types.js";
 import { renderApprovalPage } from "./page.js";
 import { mintApprovalToken, verifyApprovalToken } from "./token.js";
 
@@ -42,8 +43,86 @@ export function approvalRouter(ctx: ServerContext): Router {
   router.get("/approve/:id", approvalPage(ctx));
   router.get("/api/stored-requests/:id", getStoredRequest(ctx));
   router.post("/api/stored-requests/:id/submit", submitStoredRequest(ctx));
+  router.post("/api/stored-requests/:id/confirm", confirmStoredRequest(ctx));
   router.post("/api/stored-requests/:id/reject", rejectStoredRequest(ctx));
   return router;
+}
+
+/** Thrown when a client-reported tx hash doesn't match the stored request. */
+class TxMismatchError extends Error {}
+
+function statusForError(err: unknown): number {
+  if (err instanceof AuthRequiredError) return 401;
+  if (err instanceof StoredRequestNotFoundError) return 404;
+  if (err instanceof StoredRequestExpiredError) return 410;
+  if (err instanceof TxMismatchError) return 409;
+  return 500;
+}
+
+/**
+ * Resolves the authenticated user behind an approval action. Two ways in:
+ *   1. Per-request approval token in `X-Approval-Token` (minted with the
+ *      approval URL — proves the caller was handed the URL by the agent).
+ *   2. Privy bearer token in `Authorization` (the in-browser login path).
+ */
+async function authorizeFor(ctx: ServerContext, req: Request, id: string): Promise<string> {
+  const approvalToken = req.header("x-approval-token");
+  const bearer = extractBearer(req.header("authorization"));
+
+  if (approvalToken && ctx.config.approvalSecret) {
+    const stored = await ctx.store.get(id);
+    if (!stored) throw new StoredRequestNotFoundError(id);
+    const ok = verifyApprovalToken(
+      approvalToken,
+      { requestId: id, userId: stored.userId, expiresAt: stored.expiresAt },
+      ctx.config.approvalSecret,
+    );
+    if (!ok) throw new AuthRequiredError("Invalid or expired approval token");
+    return stored.userId;
+  }
+  if (bearer) {
+    if (!ctx.auth) throw new Error("Privy is not configured on this server.");
+    const verified = await ctx.auth.verifyAccessToken(bearer);
+    return verified.userId;
+  }
+  throw new AuthRequiredError();
+}
+
+/**
+ * Integrity gate for the client-signed path: a logged-in user POSTs the hash of
+ * a tx they broadcast from their own wallet, so we confirm on-chain that it
+ * actually matches the request they were asked to approve before recording it.
+ * Propagation lag is tolerated — an unfound tx is accepted (the caller is
+ * already an authenticated owner); a *found-but-different* tx is rejected.
+ */
+async function assertOnChainMatch(
+  ctx: ServerContext,
+  stored: { network: "mainnet" | "testnet"; walletAddress: string; call: StoredRequest["call"] },
+  txHash: Hex,
+): Promise<void> {
+  let tx: Awaited<
+    ReturnType<ReturnType<ServerContext["clients"]["publicClient"]>["getTransaction"]>
+  >;
+  try {
+    tx = await ctx.clients.publicClient(stored.network).getTransaction({ hash: txHash });
+  } catch {
+    return; // not yet indexed (just broadcast) — accept; ownership already proven
+  }
+  if (!tx) return;
+  const mismatches: string[] = [];
+  if ((tx.from ?? "").toLowerCase() !== stored.walletAddress.toLowerCase())
+    mismatches.push(`from ${tx.from} ≠ ${stored.walletAddress}`);
+  if ((tx.to ?? "").toLowerCase() !== stored.call.to.toLowerCase())
+    mismatches.push(`to ${tx.to} ≠ ${stored.call.to}`);
+  if (tx.value !== BigInt(stored.call.value))
+    mismatches.push(`value ${tx.value} ≠ ${stored.call.value}`);
+  if ((tx.input ?? "0x").toLowerCase() !== (stored.call.data ?? "0x").toLowerCase())
+    mismatches.push("calldata differs");
+  if (mismatches.length > 0) {
+    throw new TxMismatchError(
+      `Reported tx does not match the approved request: ${mismatches.join("; ")}`,
+    );
+  }
 }
 
 function approvalPage(ctx: ServerContext): RequestHandler {
@@ -61,6 +140,12 @@ function approvalPage(ctx: ServerContext): RequestHandler {
     const rpcUrl =
       stored.network === "mainnet" ? ctx.config.monadMainnetRpc : ctx.config.monadTestnetRpc;
     const tokenParam = typeof req.query.t === "string" ? req.query.t : undefined;
+    // Grant activations have no transaction to sign in the browser — they flip a
+    // server-side grant — so they keep the server-submit path. Everything else
+    // (real transfers/contract calls) signs client-side with the user's own
+    // wallet, which works for any wallet the user controls (no server signer).
+    const pc = stored.pluginContext as { kind?: string } | undefined;
+    const signingMode: "client" | "server" = pc?.kind === "grant_activation" ? "server" : "client";
     res.set("Content-Type", "text/html; charset=utf-8");
     res.send(
       renderApprovalPage({
@@ -70,6 +155,7 @@ function approvalPage(ctx: ServerContext): RequestHandler {
         publicBaseUrl: ctx.config.publicBaseUrl,
         rpcUrl,
         approvalToken: tokenParam,
+        signingMode,
       }),
     );
   };
@@ -107,33 +193,7 @@ function submitStoredRequest(ctx: ServerContext): RequestHandler {
     try {
       if (!ctx.auth) throw new Error("Privy is not configured on this server.");
       const id = asId(req.params.id);
-
-      // Two ways to authenticate the submit:
-      //   1. Privy bearer token in Authorization header (original flow).
-      //   2. Per-request approval token in X-Approval-Token header — minted
-      //      when the stored request was created, lives only for that one
-      //      request, and proves the caller was handed the approval URL by
-      //      the agent.
-      const approvalToken = req.header("x-approval-token");
-      const bearer = extractBearer(req.header("authorization"));
-      let userId: string;
-
-      if (approvalToken && ctx.config.approvalSecret) {
-        const stored = await ctx.store.get(id);
-        if (!stored) throw new StoredRequestNotFoundError(id);
-        const ok = verifyApprovalToken(
-          approvalToken,
-          { requestId: id, userId: stored.userId, expiresAt: stored.expiresAt },
-          ctx.config.approvalSecret,
-        );
-        if (!ok) throw new AuthRequiredError("Invalid or expired approval token");
-        userId = stored.userId;
-      } else if (bearer) {
-        const verified = await ctx.auth.verifyAccessToken(bearer);
-        userId = verified.userId;
-      } else {
-        throw new AuthRequiredError();
-      }
+      const userId = await authorizeFor(ctx, req, id);
       const stored = await ctx.store.get(id);
       if (!stored) throw new StoredRequestNotFoundError(id);
       if (stored.userId !== userId) {
@@ -192,16 +252,68 @@ function submitStoredRequest(ctx: ServerContext): RequestHandler {
       res.json({ tx_hash: updated.txHash, status: updated.status });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      const code =
-        err instanceof AuthRequiredError
-          ? 401
-          : err instanceof StoredRequestNotFoundError
-            ? 404
-            : err instanceof StoredRequestExpiredError
-              ? 410
-              : 500;
       ctx.logger.error("submit failed", { error: msg });
-      res.status(code).json({ error: msg });
+      res.status(statusForError(err)).json({ error: msg });
+    }
+  };
+}
+
+/**
+ * Client-signed approval path: the user signed + broadcast the transaction in
+ * their browser with their own embedded wallet (via the Privy web SDK), and now
+ * reports the resulting hash. The server never signs here — it verifies the
+ * caller owns the request, checks the on-chain tx matches, and records it.
+ *
+ * This is the trust-maximizing path and the only one that works for wallets the
+ * server can't sign for (i.e. anything created by browser login rather than
+ * server-side provisioning).
+ */
+function confirmStoredRequest(ctx: ServerContext): RequestHandler {
+  return async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = asId(req.params.id);
+      const txHash = (req.body as { tx_hash?: string } | undefined)?.tx_hash;
+      if (!txHash || !/^0x[0-9a-fA-F]{64}$/.test(txHash)) {
+        res.status(400).json({ error: "tx_hash (0x + 64 hex chars) is required" });
+        return;
+      }
+      const userId = await authorizeFor(ctx, req, id);
+      const stored = await ctx.store.get(id);
+      if (!stored) throw new StoredRequestNotFoundError(id);
+      if (stored.userId !== userId) {
+        res.status(403).json({ error: "not_your_request" });
+        return;
+      }
+      if (stored.status === "expired") throw new StoredRequestExpiredError(id);
+      if (stored.status === "approved" && stored.txHash) {
+        res.json({ tx_hash: stored.txHash, status: "approved" });
+        return;
+      }
+      if (stored.status === "rejected") {
+        res.status(409).json({ error: "already_rejected" });
+        return;
+      }
+      const pc = stored.pluginContext as { kind?: string } | undefined;
+      if (pc?.kind === "grant_activation") {
+        res
+          .status(400)
+          .json({ error: "grant activations are confirmed via /submit, not /confirm" });
+        return;
+      }
+
+      await assertOnChainMatch(ctx, stored, txHash as Hex);
+
+      const updated = await ctx.store.markApproved(id, txHash as `0x${string}`);
+      ctx.logger.info("request approved (client-signed)", {
+        request_id: id,
+        tx_hash: txHash,
+        user_id: userId,
+      });
+      res.json({ tx_hash: updated.txHash, status: updated.status });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      ctx.logger.error("confirm failed", { error: msg });
+      res.status(statusForError(err)).json({ error: msg });
     }
   };
 }
