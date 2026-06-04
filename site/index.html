@@ -282,21 +282,53 @@ const argEl = document.getElementById("arg");
 
 function refreshRpc() { rpcurlEl.textContent = RPC[netSel.value]; }
 refreshRpc();
-netSel.addEventListener("change", refreshRpc);
 
-const EXAMPLES = {
-  get_balance: ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dEaD"],
-  get_token_balance: ["0x000000000000000000000000000000000000dEaD,0xf817257fed379853cDe0fa4F97AB987181B1E5Ea"],
-  get_tx_receipt: [],
-  block_number: [],
+// real on-chain txs (status: success) so the receipt demo resolves on each network
+const TX_EXAMPLE = {
+  testnet: "0x98dab47a16046ad2c1a21a97e13a16b9ebb3fd7f34584cd7383d887f54912dad",
+  mainnet: "0x437234bc31c40708b9c25e198ddf385e6c08f3b1b3850b3aa4b2dbbbbb7c045c",
 };
+const EXAMPLES = {
+  get_balance: () => ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dEaD"],
+  get_token_balance: () => ["0x000000000000000000000000000000000000dEaD,0xf817257fed379853cDe0fa4F97AB987181B1E5Ea"],
+  get_tx_receipt: (net) => [TX_EXAMPLE[net]],
+  block_number: () => [],
+};
+function currentExamples() {
+  const fn = EXAMPLES[toolSel.value];
+  return fn ? fn(netSel.value) : [];
+}
 function renderExamples() {
-  const ex = EXAMPLES[toolSel.value] || [];
+  const ex = currentExamples();
   const box = document.getElementById("examples");
   box.innerHTML = ex.map((e) => `<span class="chip">${e}</span>`).join("");
   box.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { argEl.value = c.textContent; }));
 }
-toolSel.addEventListener("change", renderExamples); renderExamples();
+// is the current input usable for the given tool? (so we never auto-clobber valid input)
+function validFor(tool, val) {
+  val = (val || "").trim();
+  if (tool === "get_balance") return /^0x[0-9a-fA-F]{40}$/.test(val);
+  if (tool === "get_token_balance") {
+    const [h, t] = val.split(",").map((s) => s.trim());
+    return /^0x[0-9a-fA-F]{40}$/.test(h || "") && /^0x[0-9a-fA-F]{40}$/.test(t || "");
+  }
+  if (tool === "get_tx_receipt") return /^0x[0-9a-fA-F]{64}$/.test(val);
+  return true; // block_number ignores the input
+}
+// load a working example only when the current input doesn't fit the selected tool
+function fillExampleIfNeeded() {
+  if (!validFor(toolSel.value, argEl.value)) argEl.value = currentExamples()[0] || "";
+}
+toolSel.addEventListener("change", () => { renderExamples(); fillExampleIfNeeded(); });
+netSel.addEventListener("change", () => {
+  refreshRpc();
+  renderExamples();
+  // a tx hash is the same shape on both chains but only resolves on its own; swap the demo hash to match
+  if (toolSel.value === "get_tx_receipt" && Object.values(TX_EXAMPLE).includes(argEl.value.trim())) {
+    argEl.value = TX_EXAMPLE[netSel.value];
+  }
+});
+renderExamples();
 
 async function rpc(net, method, params) {
   const res = await fetch(RPC[net], {
