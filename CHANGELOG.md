@@ -5,6 +5,8 @@ All notable changes to this project are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-06-04
+
 ### Fixed
 
 **Auth**
