@@ -1,6 +1,6 @@
 {
   "name": "monad-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for the Monad blockchain — balances, transfers, swaps, lending, staking, bridging & x402 payments for AI agents, with Privy-backed signing and session keys.",
   "license": "MIT",
   "author": "Pareen Lathia",
