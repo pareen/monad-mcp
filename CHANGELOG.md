@@ -19,6 +19,10 @@ All notable changes to this project are documented here. Format loosely follows
 - New module `src/nns/` calls the NadNameService core contract
   (`getResolvedAddress` / `getPrimaryNameForAddress`) directly; addresses verified
   on-chain against Monad mainnet.
+- Names always resolve against the mainnet NNS registry regardless of the tool's
+  target network (resolved addresses are chain-agnostic), so `.nad` sends work on
+  the default testnet config with no `network` override — the tx still executes on
+  the targeted network.
 
 ### Changed
 

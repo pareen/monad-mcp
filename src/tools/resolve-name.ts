@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { isHexAddress, looksLikeNadName, resolveNadName, reverseNadName } from "../nns/index.js";
+import {
+  NNS_REGISTRY_NETWORK,
+  isHexAddress,
+  looksLikeNadName,
+  resolveNadName,
+  reverseNadName,
+} from "../nns/index.js";
 import type { ToolDefinition } from "./registry.js";
 import { optionalNetwork } from "./schemas.js";
 
@@ -30,11 +36,13 @@ export const resolveNameTool: ToolDefinition<typeof shape> = {
   handler: async (args, ctx) => {
     const query = args.query.trim();
     const client = ctx.server.clients.publicClient(ctx.network);
+    // `.nad` is a mainnet registry; resolve names there regardless of ctx.network.
+    const nnsClient = ctx.server.clients.publicClient(NNS_REGISTRY_NETWORK);
 
     // 0x address → reverse lookup for a friendly primary name.
     if (isHexAddress(query)) {
       const address = query.toLowerCase() as `0x${string}`;
-      const name = await reverseNadName(client, ctx.network, address);
+      const name = await reverseNadName(nnsClient, NNS_REGISTRY_NETWORK, address);
       if (name) {
         return {
           text: `${address} → ${name} (primary .nad name).`,
@@ -49,16 +57,25 @@ export const resolveNameTool: ToolDefinition<typeof shape> = {
 
     // `*.nad` name → forward lookup via Nad Name Service.
     if (looksLikeNadName(query)) {
-      const address = await resolveNadName(client, ctx.network, query);
+      const address = await resolveNadName(nnsClient, NNS_REGISTRY_NETWORK, query);
       if (address) {
         return {
           text: `${query} → ${address}`,
-          structured: { source: "nns", query: query.toLowerCase(), address, network: ctx.network },
+          structured: {
+            source: "nns",
+            query: query.toLowerCase(),
+            address,
+            network: NNS_REGISTRY_NETWORK,
+          },
         };
       }
       return {
-        text: `'${query}' has no address record on Monad ${ctx.network} (unregistered, or NNS isn't deployed on this network). Look it up at https://nad.domains and paste the 0x address.`,
-        structured: { source: "nns_no_record", query: query.toLowerCase(), network: ctx.network },
+        text: `'${query}' has no address record in the Nad Name Service (unregistered, or it has no address record). Look it up at https://nad.domains and paste the 0x address.`,
+        structured: {
+          source: "nns_no_record",
+          query: query.toLowerCase(),
+          network: NNS_REGISTRY_NETWORK,
+        },
       };
     }
 

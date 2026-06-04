@@ -20,6 +20,13 @@ import type { NetworkName } from "../chains/monad.js";
  */
 export const NNS_TLD = "nad";
 
+/**
+ * The network whose NNS registry is authoritative for `.nad` names. nad.domains
+ * is a mainnet registry, and resolved addresses are chain-agnostic, so names are
+ * always resolved here regardless of which network a transaction executes on.
+ */
+export const NNS_REGISTRY_NETWORK: NetworkName = "mainnet";
+
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
 

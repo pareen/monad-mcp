@@ -47,7 +47,7 @@ describe("transfer tool", () => {
     expect(stored?.simulation?.assetChanges?.[0]?.kind).toBe("native");
   });
 
-  test("resolves a .nad recipient to an address before building the call", async () => {
+  test("resolves a .nad recipient on the default (testnet) network — names live on mainnet", async () => {
     const keone = "0x771cda7e3786979d8fded8d4c22cd42f7b576dd4";
     // The only readContract a native transfer makes is NNS getResolvedAddress.
     const readContract = vi.fn(async () => keone);
@@ -57,23 +57,23 @@ describe("transfer tool", () => {
         estimateGas: vi.fn(async () => 21_000n) as never,
       },
     });
-    const res = await runTool(
-      transferTool,
-      { to: "keone.nad", amount: "2", network: "mainnet" },
-      ctx,
-      authedInfo,
-    );
+    // No network override: the tool defaults to testnet, but the name still
+    // resolves because NNS is queried on the mainnet registry.
+    const res = await runTool(transferTool, { to: "keone.nad", amount: "2" }, ctx, authedInfo);
     expect(res.isError).toBeFalsy();
     const structured = res.structuredContent as {
       to: string;
       recipient_name: string;
       summary: string;
+      network: string;
       call: { to: string; value: string };
     };
     expect(structured.to).toBe(keone);
     expect(structured.recipient_name).toBe("keone.nad");
     expect(structured.call.to).toBe(keone);
     expect(structured.call.value).toBe("2000000000000000000");
+    // The tx itself still executes on the targeted (default) network.
+    expect(structured.network).toBe("testnet");
     // Summary shows the human-readable name for the approval UI.
     expect(structured.summary).toContain("keone.nad");
   });
@@ -83,12 +83,7 @@ describe("transfer tool", () => {
     const ctx = makeTestContext({
       publicClient: { readContract: readContract as never },
     });
-    const res = await runTool(
-      transferTool,
-      { to: "ghost.nad", amount: "1", network: "mainnet" },
-      ctx,
-      authedInfo,
-    );
+    const res = await runTool(transferTool, { to: "ghost.nad", amount: "1" }, ctx, authedInfo);
     expect(res.isError).toBe(true);
     expect(res.content[0]?.text).toMatch(/ghost\.nad/);
   });
