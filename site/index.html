@@ -218,67 +218,19 @@
   <div class="wrap">
     <p class="eyebrow">What to say</p>
     <h2>Typical prompts to get you started</h2>
-    <p class="lead">Once the connector is on, just talk to your agent in plain English. Here are prompts that map onto real tools — click any one to copy it, paste it into Claude or ChatGPT, and go.</p>
+    <p class="lead">Once the connector is on, just talk to your agent in plain English. These prompts map onto real tools — <b>copy</b> any one, or <b>open it straight in a new chat</b> with the prompt prefilled.</p>
 
-    <div class="usecases">
-      <div class="uc">
-        <div class="uc-head"><span class="ic">🔍</span><h3>Explore &amp; monitor</h3><span class="pill r">read · no login</span></div>
-        <div class="prompt-list">
-          <button class="prompt">What's the MON balance of 0x7E274bCA90eEfa81761080e074AFb1D354a0c552?<span class="ico">⧉</span></button>
-          <button class="prompt">Show me the full portfolio for vitalik.mon<span class="ico">⧉</span></button>
-          <button class="prompt">What's the current price of WMON and USDC?<span class="ico">⧉</span></button>
-          <button class="prompt">List the last 10 transactions for my wallet<span class="ico">⧉</span></button>
-        </div>
-      </div>
-
-      <div class="uc">
-        <div class="uc-head"><span class="ic">🛡️</span><h3>Check before you act</h3><span class="pill r">read · no login</span></div>
-        <div class="prompt-list">
-          <button class="prompt">Is token 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea safe to trade? Check liquidity and pair age<span class="ico">⧉</span></button>
-          <button class="prompt">Simulate sending 5 MON to alice.mon — will it succeed?<span class="ico">⧉</span></button>
-          <button class="prompt">Read the totalSupply on this ERC-20 contract<span class="ico">⧉</span></button>
-          <button class="prompt">Get me a bridge quote for 20 USDC from Monad to Base<span class="ico">⧉</span></button>
-        </div>
-      </div>
-
-      <div class="uc">
-        <div class="uc-head"><span class="ic">🔁</span><h3>Trade &amp; swap</h3><span class="pill w">write · approval</span></div>
-        <div class="prompt-list">
-          <button class="prompt">Swap 10 MON for USDC on Uniswap — show me the quote first<span class="ico">⧉</span></button>
-          <button class="prompt">What's the best bid and ask for MON/USDC on Kuru?<span class="ico">⧉</span></button>
-          <button class="prompt">Place a limit order to buy 100 USDC worth of MON 5% below market<span class="ico">⧉</span></button>
-        </div>
-      </div>
-
-      <div class="uc">
-        <div class="uc-head"><span class="ic">🌱</span><h3>Stake &amp; earn</h3><span class="pill w">write · approval</span></div>
-        <div class="prompt-list">
-          <button class="prompt">Stake 5 MON with FastLane for shMON<span class="ico">⧉</span></button>
-          <button class="prompt">Stake 5 MON into Kintsu and show my sMON position<span class="ico">⧉</span></button>
-          <button class="prompt">Supply 50 USDC to Morpho and tell me the borrow APY<span class="ico">⧉</span></button>
-        </div>
-      </div>
-
-      <div class="uc">
-        <div class="uc-head"><span class="ic">💸</span><h3>Send &amp; pay</h3><span class="pill w">write · approval</span></div>
-        <div class="prompt-list">
-          <button class="prompt">Send 0.1 MON to alice.mon<span class="ico">⧉</span></button>
-          <button class="prompt">Bridge 20 USDC from Monad to Base<span class="ico">⧉</span></button>
-          <button class="prompt">Pay for this x402 service and report the tx hash<span class="ico">⧉</span></button>
-        </div>
-      </div>
-
-      <div class="uc">
-        <div class="uc-head"><span class="ic">⚡</span><h3>Hands-free autonomy</h3><span class="pill w">write · session key</span></div>
-        <div class="prompt-list">
-          <button class="prompt">Grant a session key capped at 5 MON that expires in 1 hour, only for FastLane staking<span class="ico">⧉</span></button>
-          <button class="prompt">List my active session keys<span class="ico">⧉</span></button>
-          <button class="prompt">Revoke the session key I created earlier<span class="ico">⧉</span></button>
-        </div>
-      </div>
+    <div class="open-toggle">
+      <span>Open prompts in</span>
+      <span class="seg" id="open-seg">
+        <button type="button" data-client="claude" class="active">Claude</button>
+        <button type="button" data-client="chatgpt">ChatGPT</button>
+      </span>
     </div>
 
-    <p class="uc-tip" style="text-align:center">Read prompts work on the hosted connector with no login. Write prompts (swap, stake, send, grant) return an approval link you confirm — or run inside a session key you've already approved.</p>
+    <div class="usecases" id="usecases-list"></div>
+
+    <p class="uc-tip" style="text-align:center">Read prompts work on the hosted connector with no login. Write prompts (swap, stake, send, grant) return an approval link you confirm — or run inside a session key you've already approved. Opening a prompt drafts it in a new chat; make sure the Monad connector is enabled there.</p>
   </div>
 </section>
 
@@ -406,18 +358,93 @@ document.querySelectorAll(".copy").forEach((btn) => {
   });
 });
 
-// ---------- click-to-copy prompts ----------
-document.querySelectorAll(".prompt").forEach((btn) => {
+// ---------- use cases / prompts (data-driven, copy + open-in-client) ----------
+const USECASES = [
+  { ic: "🔍", title: "Explore & monitor", tag: "read · no login", k: "r", prompts: [
+    "What's the MON balance of 0x7E274bCA90eEfa81761080e074AFb1D354a0c552?",
+    "Show me the full portfolio for vitalik.mon",
+    "What's the current price of WMON and USDC?",
+    "List the last 10 transactions for my wallet",
+  ]},
+  { ic: "🛡️", title: "Check before you act", tag: "read · no login", k: "r", prompts: [
+    "Is token 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea safe to trade? Check liquidity and pair age",
+    "Simulate sending 5 MON to alice.mon — will it succeed?",
+    "Read the totalSupply on this ERC-20 contract",
+    "Get me a bridge quote for 20 USDC from Monad to Base",
+  ]},
+  { ic: "🔁", title: "Trade & swap", tag: "write · approval", k: "w", prompts: [
+    "Swap 10 MON for USDC on Uniswap — show me the quote first",
+    "What's the best bid and ask for MON/USDC on Kuru?",
+    "Place a limit order to buy 100 USDC worth of MON 5% below market",
+  ]},
+  { ic: "🌱", title: "Stake & earn", tag: "write · approval", k: "w", prompts: [
+    "Stake 5 MON with FastLane for shMON",
+    "Stake 5 MON into Kintsu and show my sMON position",
+    "Supply 50 USDC to Morpho and tell me the borrow APY",
+  ]},
+  { ic: "💸", title: "Send & pay", tag: "write · approval", k: "w", prompts: [
+    "Send 0.1 MON to alice.mon",
+    "Bridge 20 USDC from Monad to Base",
+    "Pay for this x402 service and report the tx hash",
+  ]},
+  { ic: "⚡", title: "Hands-free autonomy", tag: "write · session key", k: "w", prompts: [
+    "Grant a session key capped at 5 MON that expires in 1 hour, only for FastLane staking",
+    "List my active session keys",
+    "Revoke the session key I created earlier",
+  ]},
+];
+
+const CLIENTS = {
+  claude:  { label: "Claude",  url: (q) => `https://claude.ai/new?q=${encodeURIComponent(q)}` },
+  chatgpt: { label: "ChatGPT", url: (q) => `https://chatgpt.com/?q=${encodeURIComponent(q)}` },
+};
+let openClient = "claude";
+
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+document.getElementById("usecases-list").innerHTML = USECASES.map((c) => `
+  <div class="uc">
+    <div class="uc-head"><span class="ic">${c.ic}</span><h3>${esc(c.title)}</h3><span class="pill ${c.k}">${esc(c.tag)}</span></div>
+    <div class="prompt-list">
+      ${c.prompts.map((p) => `
+        <div class="prompt">
+          <span class="prompt-text">${esc(p)}</span>
+          <span class="prompt-actions">
+            <button class="p-act p-copy" type="button" title="Copy prompt" aria-label="Copy prompt">⧉</button>
+            <a class="p-act p-open" target="_blank" rel="noopener" title="Open in chat">↗</a>
+          </span>
+        </div>`).join("")}
+    </div>
+  </div>`).join("");
+
+function applyOpenLinks() {
+  const c = CLIENTS[openClient];
+  document.querySelectorAll("#usecases-list .prompt").forEach((row) => {
+    const q = row.querySelector(".prompt-text").textContent;
+    const a = row.querySelector(".p-open");
+    a.href = c.url(q);
+    a.title = `Open in ${c.label}`;
+    a.setAttribute("aria-label", `Open in ${c.label}`);
+  });
+}
+applyOpenLinks();
+
+document.querySelectorAll("#open-seg button").forEach((b) => {
+  b.addEventListener("click", () => {
+    openClient = b.dataset.client;
+    document.querySelectorAll("#open-seg button").forEach((x) => x.classList.toggle("active", x === b));
+    applyOpenLinks();
+  });
+});
+
+document.querySelectorAll("#usecases-list .p-copy").forEach((btn) => {
   btn.addEventListener("click", async () => {
-    const text = btn.querySelector(".ico")
-      ? btn.textContent.replace(/⧉\s*$/, "").trim()
-      : btn.textContent.trim();
+    const text = btn.closest(".prompt").querySelector(".prompt-text").textContent;
     try { await navigator.clipboard.writeText(text); } catch {}
-    const ico = btn.querySelector(".ico");
-    const old = ico ? ico.textContent : "";
     btn.classList.add("copied");
-    if (ico) ico.textContent = "✓";
-    setTimeout(() => { btn.classList.remove("copied"); if (ico) ico.textContent = old; }, 1400);
+    const old = btn.textContent;
+    btn.textContent = "✓";
+    setTimeout(() => { btn.classList.remove("copied"); btn.textContent = old; }, 1400);
   });
 });
 

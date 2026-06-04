@@ -300,26 +300,48 @@ footer.site p { margin: 6px 0; }
 }
 .uc-head .pill.r { color: var(--ok); background: rgba(58, 207, 134, 0.1); border: 1px solid rgba(58,207,134,0.35); }
 .uc-head .pill.w { color: var(--accent2); background: var(--accent-soft); border: 1px solid var(--border2); }
+/* open-in-client toggle */
+.open-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin: -18px 0 26px; font-size: 13px; color: var(--faint);
+}
+.open-toggle .seg {
+  display: inline-flex; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 999px; padding: 3px;
+}
+.open-toggle .seg button {
+  appearance: none; background: transparent; border: none; cursor: pointer;
+  font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--muted);
+  padding: 5px 14px; border-radius: 999px; transition: background .12s ease, color .12s ease;
+}
+.open-toggle .seg button:hover { color: var(--fg); }
+.open-toggle .seg button.active { background: var(--accent); color: #fff; }
+
 .prompt-list { display: grid; gap: 8px; }
 .prompt {
-  position: relative; text-align: left; width: 100%; min-width: 0; cursor: pointer;
-  appearance: none; font-family: var(--sans);
+  display: flex; align-items: flex-start; gap: 8px; min-width: 0;
   background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
-  padding: 11px 40px 11px 13px; font-size: 13.5px; line-height: 1.5; color: var(--muted);
-  overflow-wrap: anywhere; word-break: break-word;
-  transition: border-color .12s ease, color .12s ease;
+  padding: 9px 9px 9px 13px;
+  transition: border-color .12s ease;
 }
-.prompt:hover { border-color: var(--accent); color: var(--fg); }
-.prompt:before { content: "\201C"; color: var(--faint); margin-right: 2px; }
-.prompt:after { content: "\201D"; color: var(--faint); margin-left: 2px; }
-.prompt .ico {
-  position: absolute; top: 50%; right: 11px; transform: translateY(-50%);
-  font-size: 11px; color: var(--faint);
+.prompt:hover { border-color: var(--border2); }
+.prompt-text {
+  flex: 1; min-width: 0; font-size: 13.5px; line-height: 1.5; color: var(--muted);
+  overflow-wrap: anywhere; word-break: break-word; padding-top: 4px;
 }
-.prompt:hover .ico { color: var(--accent2); }
-.prompt.copied { border-color: var(--ok); color: var(--fg); }
-.prompt.copied .ico { color: var(--ok); }
-.uc-tip { font-size: 12px; color: var(--faint); margin: 12px 0 0; }
+.prompt-text:before { content: "\201C"; color: var(--faint); margin-right: 1px; }
+.prompt-text:after { content: "\201D"; color: var(--faint); margin-left: 1px; }
+.prompt:hover .prompt-text { color: var(--fg); }
+.prompt-actions { flex: none; display: flex; gap: 3px; align-items: center; }
+.p-act {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  appearance: none; cursor: pointer; font-family: var(--sans); font-size: 12px;
+  background: transparent; border: 1px solid transparent; border-radius: 7px;
+  color: var(--faint); text-decoration: none; transition: all .12s ease;
+}
+.p-act:hover { color: var(--accent2); border-color: var(--border2); background: var(--panel3); text-decoration: none; }
+.p-copy.copied { color: var(--ok); border-color: rgba(58,207,134,0.4); }
+.uc-tip { font-size: 12px; color: var(--faint); margin: 16px 0 0; max-width: 720px; margin-left: auto; margin-right: auto; }
 
 /* ---------- FAQ accordion ---------- */
 .faq-list { max-width: 760px; margin: 0 auto; display: grid; gap: 10px; }
