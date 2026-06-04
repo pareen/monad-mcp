@@ -1,55 +1,78 @@
 import { z } from "zod";
+import { isHexAddress, looksLikeNadName, resolveNadName, reverseNadName } from "../nns/index.js";
 import type { ToolDefinition } from "./registry.js";
 import { optionalNetwork } from "./schemas.js";
 
 /**
- * Monad Name Service hook. When MNS publishes a canonical resolver contract,
- * point this to it via env. For now we attempt a reverse-resolver call only
- * if both env vars are set; otherwise the tool reports "no resolver".
+ * Resolve names to addresses and back, primarily via the Nad Name Service
+ * (nad.domains) for `.nad` names. Behaviour:
  *
- *   MONAD_NAME_SERVICE_REGISTRY  — ENS-style registry contract
- *   MONAD_NAME_SERVICE_RESOLVER  — public resolver (addr() callable)
- *
- * The resolver call uses the standard `namehash(name)` → `addr(bytes32)`
- * pattern shared by ENS clones.
+ *   • 0x address      → reverse-resolve to a primary `.nad` name if one is set,
+ *                       otherwise pass the address through unchanged.
+ *   • `*.nad` name    → forward-resolve to an address via NNS.
+ *   • other names     → fall back to an env-configured ENS-style resolver
+ *                       (MONAD_NAME_SERVICE_RESOLVER), or report "no resolver".
  */
 const shape = {
-  query: z.string().min(1).describe("ENS-style name (e.g. 'pareen.mon') or 0x address."),
+  query: z.string().min(1).describe("A '.nad' name (e.g. 'keone.nad') or a 0x address."),
   network: optionalNetwork,
 };
 
-const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-
 export const resolveNameTool: ToolDefinition<typeof shape> = {
   name: "resolve_name",
-  title: "Resolve a Monad name (or pass an address through)",
+  title: "Resolve a Nad Name Service (.nad) name or address",
   description:
-    "Pass through 0x addresses unchanged. For ENS-style names, attempts a Monad Name Service " +
-    "lookup if a resolver is configured (MONAD_NAME_SERVICE_RESOLVER env). Without a configured " +
-    "resolver, returns a clean 'no resolver' so the agent can ask the user to paste the address.",
+    "Resolves Monad names to addresses and back. For '.nad' names, performs an on-chain Nad Name " +
+    "Service (nad.domains) lookup. For 0x addresses, returns the primary '.nad' name if one is set, " +
+    "otherwise passes the address through. Use this before a transfer to confirm where funds will go.",
   kind: "read",
   inputSchema: shape,
   handler: async (args, ctx) => {
-    if (ADDRESS_RE.test(args.query)) {
+    const query = args.query.trim();
+    const client = ctx.server.clients.publicClient(ctx.network);
+
+    // 0x address → reverse lookup for a friendly primary name.
+    if (isHexAddress(query)) {
+      const address = query.toLowerCase() as `0x${string}`;
+      const name = await reverseNadName(client, ctx.network, address);
+      if (name) {
+        return {
+          text: `${address} → ${name} (primary .nad name).`,
+          structured: { source: "nns_reverse", address, name },
+        };
+      }
       return {
-        text: `${args.query} (passed through — already an address).`,
-        structured: { source: "passthrough", address: args.query },
+        text: `${address} (no primary .nad name set — passed through as-is).`,
+        structured: { source: "passthrough", address },
       };
     }
 
+    // `*.nad` name → forward lookup via Nad Name Service.
+    if (looksLikeNadName(query)) {
+      const address = await resolveNadName(client, ctx.network, query);
+      if (address) {
+        return {
+          text: `${query} → ${address}`,
+          structured: { source: "nns", query: query.toLowerCase(), address, network: ctx.network },
+        };
+      }
+      return {
+        text: `'${query}' has no address record on Monad ${ctx.network} (unregistered, or NNS isn't deployed on this network). Look it up at https://nad.domains and paste the 0x address.`,
+        structured: { source: "nns_no_record", query: query.toLowerCase(), network: ctx.network },
+      };
+    }
+
+    // Other names (e.g. a different ENS-style TLD) → optional env resolver.
     const resolver = process.env.MONAD_NAME_SERVICE_RESOLVER as `0x${string}` | undefined;
     if (!resolver) {
       return {
-        text:
-          "No Monad name resolver configured (set MONAD_NAME_SERVICE_RESOLVER in env). " +
-          `For now, please paste the recipient's 0x address directly.`,
-        structured: { source: "no_resolver", query: args.query },
+        text: `'${query}' isn't a '.nad' name or a 0x address, and no fallback resolver is configured. For Monad names use a '.nad' name; otherwise paste the recipient's 0x address.`,
+        structured: { source: "no_resolver", query },
       };
     }
 
     const { namehash } = await import("viem");
-    const node = namehash(args.query);
-    const client = ctx.server.clients.publicClient(ctx.network);
+    const node = namehash(query);
     try {
       const address = (await client.readContract({
         address: resolver,
@@ -67,19 +90,19 @@ export const resolveNameTool: ToolDefinition<typeof shape> = {
       })) as `0x${string}`;
       if (!address || /^0x0+$/.test(address)) {
         return {
-          text: `Name '${args.query}' has no address record on Monad ${ctx.network}.`,
-          structured: { source: "mns_no_record", query: args.query },
+          text: `Name '${query}' has no address record on Monad ${ctx.network}.`,
+          structured: { source: "resolver_no_record", query },
         };
       }
       return {
-        text: `${args.query} → ${address}`,
-        structured: { source: "mns", query: args.query, address, node, resolver },
+        text: `${query} → ${address}`,
+        structured: { source: "resolver", query, address, node, resolver },
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return {
         text: `Resolver call failed: ${msg}`,
-        structured: { source: "mns_error", error: msg },
+        structured: { source: "resolver_error", error: msg },
       };
     }
   },

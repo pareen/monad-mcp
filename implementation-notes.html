@@ -207,6 +207,29 @@
   <h3><span class="tag tag-decision">decision</span>Signing secret reuses <code>MONAD_MCP_APPROVAL_SECRET</code></h3>
   <p>Client-id signing uses the existing approval secret. If unset, the server logs a warning and generates an ephemeral one at boot — the flow still works, but registered clients invalidate on restart, so a stable secret is recommended for any real deploy.</p>
 
+  <h2>10. Nad Name Service (.nad) resolution</h2>
+  <p class="meta">Added after a user hit "send 2 mon to keone.nad" and the server replied that no name resolver was configured. The <code>resolve_name</code> tool existed but was an unconfigured ENS-clone stub. This pass makes <code>.nad</code> names actually resolve, end to end.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Call the NadNameService core contract directly, not viem's ENS helpers</h3>
+  <p>nad.domains ships an <code>NNSUniversalResolverAdapter</code> and the docs say "swap contract addresses into existing ENS integrations." In practice viem 2.51's <code>getEnsAddress</code> calls <code>resolveWithGateways</code> on the universal resolver, which the adapter reverts on (verified live against mainnet). The reliable path is the <code>NadNameService</code> core contract's two plain view calls: <code>getResolvedAddress(bytes32 node)</code> (forward) and <code>getPrimaryNameForAddress(address)</code> (reverse). <code>node</code> is the standard ENS <code>namehash(normalize(name))</code>. New module <code>src/nns/</code> owns this.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Resolve in the tool handler, not in the zod schema</h3>
+  <p>The <code>transfer</code> recipient and the read-tool <code>address</code> args became a plain-string <code>recipientSchema</code>/<code>accountSchema</code> rather than the regex-validated <code>addressSchema</code>. Resolution needs a chain client and an <code>await</code>, which a zod transform can't cleanly do, and doing it in the handler lets us surface a clear, agent-actionable error ("look it up at nad.domains and paste the 0x address") instead of an opaque schema rejection. Addresses still get validated — by <code>resolveRecipient</code>, which rejects anything that's neither a 0x address nor a <code>.nad</code> name.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Reach past <code>transfer</code> — every address arg accepts a name</h3>
+  <p><code>get_balance</code>, <code>get_token_balance</code>, <code>get_portfolio</code>, and <code>get_transaction_history</code> all take a <code>.nad</code> name wherever they took an address, and echo the resolved <code>name (0x…)</code> in their output. Token <em>contract</em> args stay address-only — contracts aren't named. The <code>transfer</code> summary (and thus the approval UI) shows <code>keone.nad (0x771C…6dD4)</code> so the human approving sees both the name they typed and the address funds actually go to.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span>Testnet NNS is configured but effectively a no-op</h3>
+  <p>The docs list a testnet <code>NadNameService</code> address, but it has no bytecode on the public testnet RPC (<code>testnet-rpc.monad.xyz</code>) — NNS is a mainnet registry today. I kept the documented testnet address in the map (forward-compatible if Monad deploys it) but resolution there degrades gracefully: reverts/empties are caught and surfaced as "not found / NNS isn't deployed on this network", with a hint that <code>.nad</code> resolves on mainnet. Since the server's default network is testnet, an agent typically passes <code>network: "mainnet"</code> (or the user works on mainnet) for name sends.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>No reverse-lookup on hot read paths</h3>
+  <p><code>resolve_name</code> does reverse resolution (address → primary <code>.nad</code> name), but the balance/portfolio/history tools only annotate a name when the <em>user</em> passed one — they don't do an extra reverse RPC per call to decorate addresses. Keeps those tools at their current latency; the name is still shown whenever it's already known.</p>
+
+  <h3><span class="tag tag-decision">decision</span><code>MONAD_NAME_SERVICE_RESOLVER</code> demoted to a fallback</h3>
+  <p>The old env-driven generic <code>addr(node)</code> resolver still works, but only for non-<code>.nad</code> suffixes. <code>.nad</code> always uses the live NNS contracts with zero config. Existing behavior (and its test) is preserved; the structured-output <code>source</code> for that path was renamed <code>"mns"</code> → <code>"resolver"</code> for clarity.</p>
+
+  <p class="meta">Verified live against Monad mainnet (chainId 143) on 2026-06-04: <code>resolveRecipient("keone.nad")</code> → <code>0x771CdA7e3786979d8fDed8d4c22Cd42F7B576dD4</code>; 0x pass-through, unregistered-name error, and reverse lookup all exercised. 13 new unit tests in <code>tests/nns/</code> plus updated <code>resolve_name</code> and <code>transfer</code> tests; full suite 163 passing.</p>
+
   <h2>9. What ships in v1</h2>
   <ul>
     <li>TypeScript project: tsconfig, vitest, biome, .env.example, LICENSE</li>

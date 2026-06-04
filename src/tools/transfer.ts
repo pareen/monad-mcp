@@ -2,12 +2,16 @@ import { encodeFunctionData, parseEther, parseUnits } from "viem";
 import { z } from "zod";
 import { erc20Abi } from "./abi.js";
 import { approvalUrlFor } from "./approval-url.js";
+import { shortAddr } from "./format.js";
 import { tryExecuteViaGrant } from "./grant-exec.js";
 import type { ToolDefinition } from "./registry.js";
-import { addressSchema, amountSchema, optionalNetwork } from "./schemas.js";
+import { resolveToolRecipient } from "./resolve-account.js";
+import { addressSchema, amountSchema, optionalNetwork, recipientSchema } from "./schemas.js";
 
 const shape = {
-  to: addressSchema.describe("Recipient address."),
+  to: recipientSchema.describe(
+    "Recipient — a 0x address or a Nad Name Service name like 'keone.nad' (resolved on-chain).",
+  ),
   amount: amountSchema.describe('Amount to send, as a decimal string e.g. "1.5".'),
   token: addressSchema.optional().describe("ERC-20 token address. Omit to send native MON."),
   network: optionalNetwork,
@@ -35,6 +39,17 @@ export const transferTool: ToolDefinition<typeof shape> = {
     }
 
     const client = ctx.server.clients.publicClient(ctx.network);
+
+    // Accept either a 0x address or a `.nad` name. Resolving here (rather than
+    // in the schema) lets us reach the chain and surface a clear error the
+    // agent can relay if the name doesn't resolve.
+    const recipient = await resolveToolRecipient(ctx, args.to);
+    // How the recipient reads in the summary / approval UI: name + short addr
+    // when resolved from a name, otherwise just the address.
+    const recipientLabel = recipient.name
+      ? `${recipient.name} (${shortAddr(recipient.address)})`
+      : recipient.address;
+
     let call: { to: `0x${string}`; value: string; data: `0x${string}` };
     let summary: string;
     let assetChange: {
@@ -47,8 +62,8 @@ export const transferTool: ToolDefinition<typeof shape> = {
 
     if (!args.token) {
       const wei = parseEther(args.amount);
-      call = { to: args.to, value: wei.toString(), data: "0x" };
-      summary = `Send ${args.amount} MON to ${args.to}`;
+      call = { to: recipient.address, value: wei.toString(), data: "0x" };
+      summary = `Send ${args.amount} MON to ${recipientLabel}`;
       assetChange = { kind: "native", delta: `-${wei.toString()}` };
     } else {
       // Look up decimals + symbol so the approval UI can render a clean diff.
@@ -71,10 +86,10 @@ export const transferTool: ToolDefinition<typeof shape> = {
       const data = encodeFunctionData({
         abi: erc20Abi,
         functionName: "transfer",
-        args: [args.to, amountUnits],
+        args: [recipient.address, amountUnits],
       });
       call = { to: args.token, value: "0", data };
-      summary = `Send ${args.amount} ${symbol} to ${args.to}`;
+      summary = `Send ${args.amount} ${symbol} to ${recipientLabel}`;
       assetChange = {
         kind: "erc20",
         token: args.token,
@@ -140,6 +155,8 @@ export const transferTool: ToolDefinition<typeof shape> = {
         approval_url: approvalUrl,
         network: ctx.network,
         from: ctx.walletAddress,
+        to: recipient.address,
+        ...(recipient.name ? { recipient_name: recipient.name } : {}),
         summary,
         call,
         simulation: stored.simulation,
