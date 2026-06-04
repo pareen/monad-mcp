@@ -290,7 +290,7 @@ footer.site p { margin: 6px 0; }
 
 /* ---------- use cases / prompts ---------- */
 .usecases { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
-.uc { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+.uc { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 20px; min-width: 0; }
 .uc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .uc-head .ic { font-size: 20px; line-height: 1; }
 .uc-head h3 { margin: 0; font-size: 16px; flex: 1; }
@@ -302,10 +302,11 @@ footer.site p { margin: 6px 0; }
 .uc-head .pill.w { color: var(--accent2); background: var(--accent-soft); border: 1px solid var(--border2); }
 .prompt-list { display: grid; gap: 8px; }
 .prompt {
-  position: relative; text-align: left; width: 100%; cursor: pointer;
+  position: relative; text-align: left; width: 100%; min-width: 0; cursor: pointer;
   appearance: none; font-family: var(--sans);
   background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
   padding: 11px 40px 11px 13px; font-size: 13.5px; line-height: 1.5; color: var(--muted);
+  overflow-wrap: anywhere; word-break: break-word;
   transition: border-color .12s ease, color .12s ease;
 }
 .prompt:hover { border-color: var(--accent); color: var(--fg); }
