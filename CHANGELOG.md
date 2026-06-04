@@ -24,7 +24,23 @@ All notable changes to this project are documented here. Format loosely follows
 - `MONAD_MCP_REQUIRE_AUTH=true` env flag to restore strict mode (a token required
   for every call, reads included).
 
+**Approvals**
+- Client-side signing on the approval page: it now loads the Privy web SDK and
+  signs + broadcasts the transaction with the user's own browser wallet, so the
+  flow works for any wallet the user controls — including browser-login wallets the
+  server has no signer for (previously "stranded"). The user holds the key and pays
+  gas; the server never signs.
+- `POST /api/stored-requests/:id/confirm` records a client-signed tx hash after an
+  on-chain integrity check (`from`/`to`/`value`/`calldata` must match the approved
+  request; a different tx is rejected, a not-yet-indexed one is accepted for
+  propagation lag). Authenticated by Privy bearer or the per-request approval token.
+
 ### Changed
+
+**Approvals**
+- The server-submit path (`/submit`, server-side signing via the Privy node SDK) is
+  now reserved for grant-activation requests, which have no browser transaction to
+  sign. Real transfers/contract calls sign client-side by default.
 
 **Site**
 - Reworked the landing page around *connecting* the MCP to a client: a tabbed
