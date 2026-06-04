@@ -40,22 +40,22 @@ own Privy-signed instance — see [docs/connect-claude.md](docs/connect-claude.m
 | `create_user` | none | Provision a Privy user + Monad-ready embedded wallet. Self-serve onboarding. |
 | `whoami` | required | User id, wallet address, and active session-key grants. |
 | `get_address` | required | Returns the connected wallet's address. |
-| `get_balance` | optional | Native MON balance. |
-| `get_token_balance` | optional | ERC-20 balance with decimals + symbol. |
-| `get_portfolio` | optional | All canonical token balances × USD prices via DexScreener. |
-| `get_transaction_history` | optional | Recent ERC-20 transfers via RPC log scan + explorer URL. |
+| `get_balance` | optional | Native MON balance. Accepts a 0x address or a `.nad` name. |
+| `get_token_balance` | optional | ERC-20 balance with decimals + symbol. Accepts a `.nad` name. |
+| `get_portfolio` | optional | All canonical token balances × USD prices via DexScreener. Accepts a `.nad` name. |
+| `get_transaction_history` | optional | Recent ERC-20 transfers via RPC log scan + explorer URL. Accepts a `.nad` name. |
 | `get_tx_receipt` | none | Receipt for a tx hash. |
 | `simulate_transaction` | optional | Dry-run a call (eth_call), returns return data or revert reason. |
 | `check_token` | none | Risk heuristics: canonical-list membership, bytecode, DEX liquidity, pair age. |
 | `resolve_token` | none | Symbol/name/alias → token address (canonical list + DexScreener fallback). |
 | `get_token_price` | none | USD price from the deepest-liquidity DexScreener pair on Monad. |
 | `list_canonical_tokens` | none | Built-in list of well-known Monad tokens. |
-| `resolve_name` | none | Pass through 0x addresses; ENS-style name resolution when MNS is configured. |
+| `resolve_name` | none | Nad Name Service (nad.domains): `.nad` name → address, and address → primary `.nad` name. |
 | `read_contract` | none | Call any view/pure function on any Monad contract (ABI provided inline). |
 | `decode_return_data` | none | Decode hex return data against an ABI. |
 | `bridge_quote` | optional | LiFi aggregator quote from any chain into Monad. |
 | `poll_request` | none | Status of a pending approval request. |
-| `transfer` | required | Native MON or ERC-20 transfer. Auto-executes under a session grant, else → approval URL. |
+| `transfer` | required | Native MON or ERC-20 transfer. Recipient may be a 0x address or a `.nad` name. Auto-executes under a session grant, else → approval URL. |
 | `write_contract` | required | Send a tx to any contract (any non-view function). |
 | `pay_for_service` | required | x402 (HTTP 402) — signs an EIP-3009 USDC authorization via Privy and retries with X-PAYMENT. |
 | `bridge_execute` | required | Submit the source-chain tx returned by `bridge_quote` (Monad sources only). |

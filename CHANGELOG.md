@@ -16,6 +16,23 @@ All notable changes to this project are documented here. Format loosely follows
 
 ### Added
 
+**Nad Name Service (.nad) resolution**
+- `.nad` names now resolve to addresses on-chain via [nad.domains](https://nad.domains).
+  `transfer` accepts a `.nad` name as the recipient (e.g. "send 2 MON to keone.nad"),
+  resolving it before building the unsigned tx and showing `name (0x…)` in the approval
+  summary. The read tools `get_balance`, `get_token_balance`, `get_portfolio`, and
+  `get_transaction_history` likewise accept a `.nad` name wherever they took an address.
+- `resolve_name` now performs real NNS lookups in both directions: `.nad` → address
+  (forward) and address → primary `.nad` name (reverse). The `MONAD_NAME_SERVICE_RESOLVER`
+  env var is demoted to a fallback for non-`.nad` ENS-style suffixes — `.nad` needs no config.
+- New module `src/nns/` calls the NadNameService core contract
+  (`getResolvedAddress` / `getPrimaryNameForAddress`) directly; addresses verified
+  on-chain against Monad mainnet.
+- Names always resolve against the mainnet NNS registry regardless of the tool's
+  target network (resolved addresses are chain-agnostic), so `.nad` sends work on
+  the default testnet config with no `network` override — the tx still executes on
+  the targeted network.
+
 **Auth**
 - `optionalBearerAuth` middleware (`src/auth/optional-bearer.ts`): verifies a
   bearer token when present (unlocking write tools), passes anonymous requests

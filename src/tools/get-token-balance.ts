@@ -1,13 +1,14 @@
 import { erc20Abi } from "./abi.js";
 import { formatToken, shortAddr } from "./format.js";
 import { type ToolDefinition, addressExplorerUrl } from "./registry.js";
-import { addressSchema, optionalNetwork } from "./schemas.js";
+import { resolveOptionalAccount } from "./resolve-account.js";
+import { accountSchema, addressSchema, optionalNetwork } from "./schemas.js";
 
 const shape = {
   token: addressSchema.describe("ERC-20 contract address."),
-  address: addressSchema
+  address: accountSchema
     .optional()
-    .describe("Holder address. Defaults to the authenticated user's wallet."),
+    .describe("Holder address or '.nad' name. Defaults to the authenticated user's wallet."),
   network: optionalNetwork,
 };
 
@@ -20,7 +21,8 @@ export const getTokenBalanceTool: ToolDefinition<typeof shape> = {
   kind: "read",
   inputSchema: shape,
   handler: async (args, ctx) => {
-    const holder = (args.address ?? ctx.walletAddress) as `0x${string}` | null;
+    const resolved = await resolveOptionalAccount(ctx, args.address);
+    const holder = (resolved?.address ?? ctx.walletAddress) as `0x${string}` | null;
     if (!holder) {
       return {
         text: "No address provided and no authenticated wallet. Pass `address` or sign in.",
@@ -51,10 +53,14 @@ export const getTokenBalanceTool: ToolDefinition<typeof shape> = {
         .catch(() => "TOKEN") as Promise<string>,
     ]);
 
+    const holderLabel = resolved?.name
+      ? `${resolved.name} (${shortAddr(holder)})`
+      : shortAddr(holder);
     return {
-      text: `${shortAddr(holder)} on Monad ${ctx.network}: ${formatToken(balance, decimals, symbol)} (${args.token})`,
+      text: `${holderLabel} on Monad ${ctx.network}: ${formatToken(balance, decimals, symbol)} (${args.token})`,
       structured: {
         holder,
+        ...(resolved?.name ? { holder_name: resolved.name } : {}),
         token: args.token,
         symbol,
         decimals,

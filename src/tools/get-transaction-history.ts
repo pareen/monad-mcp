@@ -1,7 +1,8 @@
 import { parseAbiItem } from "viem";
 import { z } from "zod";
 import { type ToolDefinition, addressExplorerUrl } from "./registry.js";
-import { addressSchema, optionalNetwork } from "./schemas.js";
+import { resolveOptionalAccount } from "./resolve-account.js";
+import { accountSchema, optionalNetwork } from "./schemas.js";
 
 // Monad's public RPC rejects any eth_getLogs request spanning more than 100
 // blocks ("eth_getLogs is limited to a 100 range"). A single getLogs over the
@@ -13,9 +14,9 @@ const MAX_GETLOGS_RANGE = 100n;
 const WINDOW_CONCURRENCY = 8;
 
 const shape = {
-  address: addressSchema
+  address: accountSchema
     .optional()
-    .describe("Address to query. Defaults to the authenticated user's wallet."),
+    .describe("Address or '.nad' name to query. Defaults to the authenticated user's wallet."),
   lookback_blocks: z.coerce
     .number()
     .int()
@@ -84,7 +85,8 @@ export const getTransactionHistoryTool: ToolDefinition<typeof shape> = {
   kind: "read",
   inputSchema: shape,
   handler: async (args, ctx) => {
-    const target = (args.address ?? ctx.walletAddress) as `0x${string}` | null;
+    const resolved = await resolveOptionalAccount(ctx, args.address);
+    const target = (resolved?.address ?? ctx.walletAddress) as `0x${string}` | null;
     if (!target) {
       return {
         text: "No address provided and no authenticated wallet. Pass `address` or sign in.",

@@ -4,7 +4,8 @@ import { type TokenInfo, canonicalTokensFor } from "../tokens/canonical.js";
 import { getTokenPairs, pickBestPair } from "../tokens/dexscreener.js";
 import { erc20Abi } from "./abi.js";
 import { type ToolDefinition, addressExplorerUrl } from "./registry.js";
-import { addressSchema, optionalNetwork } from "./schemas.js";
+import { resolveOptionalAccount } from "./resolve-account.js";
+import { accountSchema, optionalNetwork } from "./schemas.js";
 
 interface Holding {
   symbol: string;
@@ -68,9 +69,9 @@ async function readPriceUsd(
 }
 
 const shape = {
-  address: addressSchema
+  address: accountSchema
     .optional()
-    .describe("Holder address. Defaults to the authenticated user's wallet."),
+    .describe("Holder address or '.nad' name. Defaults to the authenticated user's wallet."),
   include_zero: z
     .boolean()
     .default(false)
@@ -90,7 +91,8 @@ export const getPortfolioTool: ToolDefinition<typeof shape> = {
   kind: "read",
   inputSchema: shape,
   handler: async (args, ctx) => {
-    const target = (args.address ?? ctx.walletAddress) as `0x${string}` | null;
+    const resolved = await resolveOptionalAccount(ctx, args.address);
+    const target = (resolved?.address ?? ctx.walletAddress) as `0x${string}` | null;
     if (!target) {
       return {
         text: "No address provided and no authenticated wallet.",
@@ -128,8 +130,9 @@ export const getPortfolioTool: ToolDefinition<typeof shape> = {
 
     const total = holdings.reduce((acc, h) => acc + (h.value_usd ?? 0), 0);
 
+    const targetLabel = resolved?.name ? `${resolved.name} (${target})` : target;
     const lines = [
-      `Portfolio for ${target} on Monad ${ctx.network}:`,
+      `Portfolio for ${targetLabel} on Monad ${ctx.network}:`,
       ...holdings.map(
         (h) =>
           `  ${h.symbol.padEnd(8)} ${h.balance_formatted.padStart(20)}  ` +
@@ -145,6 +148,7 @@ export const getPortfolioTool: ToolDefinition<typeof shape> = {
       text: lines.join("\n"),
       structured: {
         address: target,
+        ...(resolved?.name ? { name: resolved.name } : {}),
         network: ctx.network,
         total_value_usd: total,
         holdings,
