@@ -3,6 +3,43 @@
 All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+**Auth**
+- Hosted `/mcp` no longer `401`s read-only calls. When Privy is configured the
+  endpoint previously gated *every* request (including `initialize`/`tools/list`)
+  behind a bearer token, silently breaking the advertised zero-auth read flow for
+  clients that can't do interactive OAuth. Reads are now public again; only write
+  tools require a token.
+
+### Added
+
+**Auth**
+- `optionalBearerAuth` middleware (`src/auth/optional-bearer.ts`): verifies a
+  bearer token when present (unlocking write tools), passes anonymous requests
+  through to the per-tool gate, and returns a `401` + `WWW-Authenticate` challenge
+  only for a malformed/expired token.
+- `MONAD_MCP_REQUIRE_AUTH=true` env flag to restore strict mode (a token required
+  for every call, reads included).
+
+### Changed
+
+**Site**
+- Reworked the landing page around *connecting* the MCP to a client: a tabbed
+  "Pick your client" panel (Claude Code, Claude Desktop, ChatGPT, claude.ai) with
+  copy-to-clipboard commands and the hosted read-only URL front and center.
+- Added a developer/self-host subpage (`site/dev.html`) — the write-enabled "dev
+  version" walkthrough (Privy bootstrap, approval server, session keys, deploy your
+  own endpoint) — and a summary section linking to it from the main page.
+- Added a public FAQ section and a longer `docs/FAQ.md` covering setup, security,
+  read-only hosted usage, self-hosted writes, session keys, plugins, and production
+  checks.
+- Extracted a shared stylesheet (`site/styles.css`) used by both pages.
+- Corrected the live demo's tool count to 46 (26 read / 20 write across 5 DeFi
+  plugins) and fixed the dead mainnet explorer URL (`monadexplorer.com`).
+
 ## [0.1.0] — 2026-06-02
 
 First public release. An MCP server that gives AI agents a secure gateway to the

@@ -33,9 +33,9 @@ describe("bridge tools", () => {
         tool: "stargate",
         toolDetails: { name: "Stargate" },
         action: {
-          fromChainId: 8453,
+          fromChainId: 10,
           toChainId: 143,
-          fromToken: { address: "0xUSDC_BASE", symbol: "USDC", decimals: 6 },
+          fromToken: { address: "0xUSDC_OP", symbol: "USDC", decimals: 6 },
           toToken: { address: "0xUSDC_MONAD", symbol: "USDC", decimals: 6 },
           fromAmount: "10000000",
         },
@@ -54,8 +54,8 @@ describe("bridge tools", () => {
     const res = await runTool(
       bridgeQuoteTool,
       {
-        from_chain_id: 8453,
-        from_token: "0xUSDC_BASE",
+        from_chain_id: 10,
+        from_token: "0xUSDC_OP",
         to_token: "0xUSDC_MONAD",
         amount: "10",
         from_decimals: 6,
@@ -99,7 +99,7 @@ describe("bridge tools", () => {
         to: "0xabababababababababababababababababababab",
         data: "0xdeadbeef",
         value_wei: "0",
-        chain_id: 8453,
+        chain_id: 10,
       },
       ctx,
       authedInfo,

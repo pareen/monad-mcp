@@ -27,4 +27,17 @@ describe("config", () => {
   test("rejects invalid log level", () => {
     expect(() => loadConfig({ LOG_LEVEL: "lol" } as NodeJS.ProcessEnv)).toThrow();
   });
+
+  test("requireAuth defaults false and parses truthy/falsy strings", () => {
+    expect(loadConfig({}).requireAuth).toBe(false);
+    for (const v of ["true", "1", "yes", "on", "TRUE", " On "]) {
+      expect(loadConfig({ MONAD_MCP_REQUIRE_AUTH: v } as NodeJS.ProcessEnv).requireAuth).toBe(true);
+    }
+    // The string "false" must NOT coerce to true (the z.coerce.boolean footgun).
+    for (const v of ["false", "0", "no", "off", ""]) {
+      expect(loadConfig({ MONAD_MCP_REQUIRE_AUTH: v } as NodeJS.ProcessEnv).requireAuth).toBe(
+        false,
+      );
+    }
+  });
 });

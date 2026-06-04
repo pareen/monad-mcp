@@ -1,6 +1,7 @@
 import type { OAuthTokenVerifier } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { AuthRequiredError } from "../errors.js";
+import type { Logger } from "../logger.js";
 import type { PrivyAuthBridge, ResolvedUser } from "./privy.js";
 
 /**
@@ -8,10 +9,21 @@ import type { PrivyAuthBridge, ResolvedUser } from "./privy.js";
  * Verifies the bearer token, resolves the user's wallet, and packs the result
  * into AuthInfo.extra for downstream tool handlers.
  */
-export function privyTokenVerifier(bridge: PrivyAuthBridge): OAuthTokenVerifier {
+export function privyTokenVerifier(bridge: PrivyAuthBridge, logger?: Logger): OAuthTokenVerifier {
   return {
     async verifyAccessToken(token: string): Promise<AuthInfo> {
-      const { userId, sessionId } = await bridge.verifyAccessToken(token);
+      let userId: string;
+      let sessionId: string;
+      let expiresAt: number;
+      try {
+        ({ userId, sessionId, expiresAt } = await bridge.verifyAccessToken(token));
+      } catch (err) {
+        logger?.warn("mcp bearer rejected: token verification failed", {
+          stage: "verify_jwt",
+          error: err instanceof Error ? err.message : String(err),
+        });
+        throw err;
+      }
       // Resolve wallet lazily? For now eager — every authenticated call needs it.
       let resolved: ResolvedUser;
       try {
@@ -20,21 +32,30 @@ export function privyTokenVerifier(bridge: PrivyAuthBridge): OAuthTokenVerifier 
         // Pass user info through even if no wallet — read tools that take an
         // address arg still work; write tools will fail with WalletNotFoundError.
         if (err instanceof Error && err.name === "WalletNotFoundError") {
+          logger?.info("mcp bearer ok (no wallet linked, read-only)", { userId, sessionId });
           return {
             token,
             clientId: userId,
             scopes: ["monad:read"],
+            expiresAt,
             extra: { userId, sessionId, walletAddress: null, walletId: null },
           };
         }
+        logger?.warn("mcp bearer rejected: resolveUser failed", {
+          stage: "resolve_user",
+          userId,
+          error: err instanceof Error ? err.message : String(err),
+        });
         throw new AuthRequiredError(
           err instanceof Error ? err.message : "Failed to resolve Privy user",
         );
       }
+      logger?.info("mcp bearer ok", { userId, sessionId, wallet: resolved.walletAddress });
       return {
         token,
         clientId: userId,
         scopes: ["monad:read", "monad:write"],
+        expiresAt,
         extra: {
           userId: resolved.userId,
           sessionId,

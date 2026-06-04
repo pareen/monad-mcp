@@ -13,8 +13,14 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
+  # Gate the deploy on the full CI suite (lint + typecheck + tests + build).
+  # A red build on main never reaches Fly.
+  verify:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
     name: Deploy app
+    needs: verify
     runs-on: ubuntu-latest
     concurrency: deploy-group    # optional: ensure only one action runs at a time
     steps:

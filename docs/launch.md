@@ -10,7 +10,7 @@
 
 ## Why this exists
 
-Base shipped Base MCP and the demand signal was loud: people want their agent to *do things onchain*, not just read about them. Monad — a high-throughput EVM L1 — is the obvious next target. But porting "agent + wallet" to a new chain surfaces the real problem nobody had solved well: **agents are not humans.**
+The demand signal is loud: people want their agent to *do things onchain*, not just read about them. Monad — a high-throughput EVM L1 — is a natural target. But putting "agent + wallet" together surfaces the real problem nobody had solved well: **agents are not humans.**
 
 A human is happy to click "approve" on every transaction. An agent running a DCA strategy at 2am is not. The interesting design space isn't "wrap an RPC in tools" — it's **how do you let an agent act autonomously inside a boundary you trust?**
 
@@ -73,6 +73,8 @@ Not a mock. A real transfer on Monad testnet, built by the `transfer` tool, sign
 ---
 
 ## Try it
+
+Fastest taste (read-only, nothing to build): point any MCP client at the hosted endpoint `https://monad-mcp.fly.dev/mcp` — for Claude Desktop, use the `mcp-remote` shim (`["-y", "mcp-remote", "https://monad-mcp.fly.dev/mcp"]`). You get balances, portfolio, and history; the machine sleeps when idle so the first call cold-starts. Writes (transfers/swaps/session keys) need a signer, so self-host:
 
 ```bash
 git clone https://github.com/pareen/monad-mcp.git

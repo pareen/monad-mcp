@@ -3,87 +3,78 @@ import { getTransactionHistoryTool } from "../../src/tools/get-transaction-histo
 import { runTool } from "../../src/tools/registry.js";
 import { makeTestContext } from "../helpers/context.js";
 
-const TARGET = "0x1111111111111111111111111111111111111111";
+const ADDR = "0x000000000000000000000000000000000000dEaD";
 
-function transferLog(block: bigint) {
-  return {
-    transactionHash: "0xabc",
-    blockNumber: block,
-    address: "0x2222222222222222222222222222222222222222",
-    args: { from: TARGET, to: "0x3333333333333333333333333333333333333333", value: 1n },
-  };
-}
-
-describe("get_transaction_history tool", () => {
-  test("scans in <=100-block windows (never exceeds the public-RPC eth_getLogs cap)", async () => {
-    const calls: Array<{ fromBlock: bigint; toBlock: bigint }> = [];
-    const getLogs = vi.fn(
-      async (params: { fromBlock: bigint; toBlock: bigint; args?: { from?: string } }) => {
-        calls.push({ fromBlock: params.fromBlock, toBlock: params.toBlock });
-        // one transfer in the first window, on the `from` side only
-        return params.args?.from === TARGET && params.fromBlock === 750n ? [transferLog(760n)] : [];
-      },
-    );
-    const ctx = makeTestContext({
-      publicClient: {
-        getBlockNumber: vi.fn(async () => 1000n) as never,
-        getLogs: getLogs as never,
-      },
-    });
-
-    const res = await runTool(
-      getTransactionHistoryTool,
-      { address: TARGET, lookback_blocks: 250 },
-      ctx,
-    );
-
-    expect(res.isError).toBeFalsy();
-    // 250 blocks (750..1000) → 3 windows of <=100 blocks, each scanned from+to = 6 getLogs calls.
-    expect(calls.length).toBe(6);
-    for (const c of calls) {
-      expect(c.toBlock - c.fromBlock).toBeLessThanOrEqual(99n);
-    }
-    const s = res.structuredContent as {
-      windows_scanned: number;
-      windows_failed: number;
-      events: unknown[];
-    };
-    expect(s.windows_scanned).toBe(3);
-    expect(s.windows_failed).toBe(0);
-    expect(s.events.length).toBe(1);
-  });
-
-  test("tolerates a failing window and flags partial results", async () => {
-    const getLogs = vi.fn(async (params: { fromBlock: bigint }) => {
-      if (params.fromBlock === 850n) throw new Error("query exceeds max block range");
+// Regression: ISSUE-002 — get_transaction_history issued a single eth_getLogs
+// over the entire lookback (default 5000 blocks), but Monad's RPC rejects any
+// getLogs request spanning more than 100 blocks ("eth_getLogs is limited to a
+// 100 range"). Every default call therefore errored. The tool must now scan in
+// <=100-block windows. Found by /qa on 2026-06-03.
+describe("get_transaction_history windowing (ISSUE-002)", () => {
+  test("never requests an eth_getLogs range wider than 100 blocks", async () => {
+    const head = 1_000_000n;
+    const calls: Array<{ from: bigint; to: bigint }> = [];
+    // Mimic Monad's RPC: reject any window wider than 100 blocks.
+    const getLogs = vi.fn(async (params: { fromBlock: bigint; toBlock: bigint }) => {
+      calls.push({ from: params.fromBlock, to: params.toBlock });
+      if (params.toBlock - params.fromBlock > 100n) {
+        throw new Error("eth_getLogs is limited to a 100 range");
+      }
       return [];
     });
+
     const ctx = makeTestContext({
       publicClient: {
-        getBlockNumber: vi.fn(async () => 1000n) as never,
+        getBlockNumber: vi.fn(async () => head) as never,
         getLogs: getLogs as never,
       },
     });
 
     const res = await runTool(
       getTransactionHistoryTool,
-      { address: TARGET, lookback_blocks: 250 },
+      { address: ADDR, lookback_blocks: 5_000 },
       ctx,
     );
+    const s = res.structuredContent as { from_block: string; to_block: string; events: unknown[] };
 
-    expect(res.isError).toBeFalsy();
-    expect(res.content[0]?.text).toMatch(/windows failed to scan/);
-    const s = res.structuredContent as { windows_failed: number };
-    expect(s.windows_failed).toBeGreaterThan(0);
+    // Did not throw, and covered the full requested range.
+    expect(s.from_block).toBe("995000");
+    expect(s.to_block).toBe("1000000");
+    expect(s.events).toEqual([]);
+
+    // No single request exceeded the 100-block limit.
+    expect(calls.length).toBeGreaterThan(1);
+    for (const c of calls) {
+      expect(c.to - c.from).toBeLessThanOrEqual(100n);
+    }
   });
 
-  test("rejects a lookback beyond the bounded max at the schema layer", async () => {
-    const ctx = makeTestContext();
+  test("a single failing window is skipped, not fatal", async () => {
+    const head = 500n;
+    let failedOnce = false;
+    const getLogs = vi.fn(async (params: { fromBlock: bigint; toBlock: bigint }) => {
+      // Fail exactly one window (simulate a transient rate-limit hiccup).
+      if (!failedOnce && params.fromBlock > 100n) {
+        failedOnce = true;
+        throw new Error("429 rate limited");
+      }
+      return [];
+    });
+
+    const ctx = makeTestContext({
+      publicClient: {
+        getBlockNumber: vi.fn(async () => head) as never,
+        getLogs: getLogs as never,
+      },
+    });
+
     const res = await runTool(
       getTransactionHistoryTool,
-      { address: TARGET, lookback_blocks: 50_000 },
+      { address: ADDR, lookback_blocks: 400 },
       ctx,
     );
-    expect(res.isError).toBe(true);
+    const s = res.structuredContent as { skipped_block_windows?: number; events: unknown[] };
+    expect(s.skipped_block_windows).toBe(1);
+    expect(Array.isArray(s.events)).toBe(true);
   });
 });

@@ -24,7 +24,7 @@
 </head>
 <body>
   <h1>monad-mcp — implementation notes</h1>
-  <p class="meta">Spec: build a Monad MCP server inspired by Base MCP, with Privy as the wallet provider. Captured during the initial build session.</p>
+  <p class="meta">Spec: build a Monad MCP server with Privy as the wallet provider. Captured during the initial build session.</p>
 
   <h2>1. Design decisions</h2>
 
@@ -44,7 +44,7 @@
   <p>Initial design had a single <code>registerTool</code> that called the MCP SDK's <code>mcp.registerTool</code> with a wrapped handler. To unit-test the wrapper logic (auth gating, network resolution, zod validation, error formatting) without spinning up a transport, I factored the wrapper into a plain async function <code>runTool(def, args, server, authInfo)</code>. <code>registerTool</code> is now a 3-line shim. Tests call <code>runTool</code> directly. Net win for test surface area.</p>
 
   <h3><span class="tag tag-decision">decision</span>Plugins as static imports, not dynamic discovery</h3>
-  <p>Base MCP's plugin guide describes a markdown-spec approach. For a TypeScript-first server, static imports give better type safety, simpler bundling, and trivial registration. If we ever want third parties to ship plugins as separate npm packages, the <code>SkillPlugin</code> interface is already designed for it.</p>
+  <p>One alternative is a markdown-spec approach to plugins. For a TypeScript-first server, static imports give better type safety, simpler bundling, and trivial registration. If we ever want third parties to ship plugins as separate npm packages, the <code>SkillPlugin</code> interface is already designed for it.</p>
 
   <h3><span class="tag tag-decision">decision</span>Uniswap addresses are env-driven, default to <code>null</code></h3>
   <p>I don't have verified Uniswap v3 contract addresses for Monad in this build session. Rather than ship guessed addresses that could route funds to the wrong place, the plugin reads addresses from <code>UNISWAP_*_QUOTER_V2</code> and <code>UNISWAP_*_SWAP_ROUTER_02</code> env vars. If unset, write tools fail loud with a configuration error; read tools return a clear "not configured" message.</p>
@@ -52,7 +52,7 @@
   <h2>2. Deviations from the spec</h2>
 
   <h3><span class="tag tag-deviation">deviation</span><code>get_transaction_history</code> only returns ERC-20 Transfer events</h3>
-  <p>Spec said "view transaction history" matching Base MCP. Without a stable Monad block-explorer API I scoped this to ERC-20 Transfer event logs over a bounded block range (default 5k blocks). The response always includes an explorer URL for the authoritative full history. To upgrade later: integrate Monad's explorer API or use Envio/Goldsky-style indexed data.</p>
+  <p>Spec said "view transaction history." Without a stable Monad block-explorer API I scoped this to ERC-20 Transfer event logs over a bounded block range (default 5k blocks). The response always includes an explorer URL for the authoritative full history. To upgrade later: integrate Monad's explorer API or use Envio/Goldsky-style indexed data.</p>
 
   <h3><span class="tag tag-deviation">deviation</span>Approval page does not embed Privy web SDK</h3>
   <p>The HTML page renders the tx summary, asset diff, and approve/reject buttons. On approve, it POSTs to the server, which does the signing via Privy server SDK. The original architecture sketch described a browser-side Privy web SDK login + sign. Deferred to Phase 2 — current path works headless, easier to test, and the public surface (URL contract) doesn't change.</p>
@@ -63,7 +63,7 @@
   <h2>3. Tradeoffs considered</h2>
 
   <h3><span class="tag tag-tradeoff">tradeoff</span>WalletConnect vs. embedded wallet</h3>
-  <p>Earlier discussion: should the agent talk to the user's existing wallet (MetaMask/Rabby via WalletConnect) or to a Privy embedded wallet? Picked embedded wallet to match Base MCP's UX — one-click approval URL, no separate wallet install required, hosted approval page mirrors Base Account's flow. WalletConnect could be added as a separate auth strategy if needed.</p>
+  <p>Earlier discussion: should the agent talk to the user's existing wallet (MetaMask/Rabby via WalletConnect) or to a Privy embedded wallet? Picked embedded wallet for the smoothest UX — one-click approval URL, no separate wallet install required, hosted approval page handles signing inline. WalletConnect could be added as a separate auth strategy if needed.</p>
 
   <h3><span class="tag tag-tradeoff">tradeoff</span>Memory store vs. Postgres for stored requests</h3>
   <p>Picked in-memory for v1 — single-process dev ergonomics. The <code>RequestStore</code> interface is the swap-in point. Production multi-replica deployment will need Postgres (or Redis); the public tool surface doesn't change.</p>
@@ -183,7 +183,46 @@
   <h3><span class="tag tag-open">open</span>Grant + simulation</h3>
   <p>Grant coverage today is decided pre-flight. We could go further: simulate the call via Tenderly-equivalent, infer the actual asset deltas, and apply per-token caps based on what the simulation reports. Avoids the "did we just drain the wallet" failure mode.</p>
 
-  <h2>8. What ships in v1</h2>
+  <h2>8. OAuth 2.1 bridge to Privy (hosted write flow)</h2>
+  <p>To let a non-coder connect the <em>hosted</em> URL in Claude Desktop / ChatGPT and actually send transactions, the server now acts as a small OAuth 2.1 authorization server in front of Privy login. New surface: <code>POST /oauth/register</code>, <code>GET /authorize</code>, <code>POST /authorize/consent</code>, <code>POST /token</code> (in <code>src/auth/oauth-routes.ts</code> + <code>oauth-store.ts</code> + <code>login-page.ts</code>).</p>
+
+  <h3><span class="tag tag-decision">decision</span>Pass-through tokens, not our own JWTs</h3>
+  <p>The bearer token we issue at <code>/token</code> <em>is</em> the user's Privy access token, verbatim. The existing <code>privyTokenVerifier</code> already validates Privy JWTs via JWKS, so wrapping them in our own JWT would add a second signing identity and key-management burden for zero gain. Scopes are assigned server-side at verification time, so they don't need to live in the token.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Self-describing signed <code>client_id</code> for Dynamic Client Registration</h3>
+  <p>Rather than persist a client table, <code>client_id</code> is <code>base64url(JSON).hmac</code> encoding the registered redirect URIs (same HMAC trick as the approval token). Verifying the signature re-derives the redirect allowlist — no DB lookup, survives restarts and multiple machines. Fixes the original 404 at <code>/oauth/register</code> that broke connector login entirely.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Authorization codes are in-process, not persisted</h3>
+  <p>Codes must be one-shot, which a stateless signed token can't guarantee (no way to invalidate after use). So codes live in an in-memory TTL map (<code>AuthCodeStore</code>), deleted on redemption — true single-use, 2-minute TTL. Cost: a code minted on one machine can't be redeemed on another, and codes don't survive a restart. Acceptable because the hosted endpoint runs <code>min_machines_running=1</code> and the authorize&rarr;token gap is seconds; on a miss the user just re-runs login (usually silent if their Privy session is warm).</p>
+
+  <h3><span class="tag tag-decision">decision</span>PKCE S256 required; redirect_uri validated before any redirect</h3>
+  <p><code>/authorize</code> verifies <code>client_id</code> and that <code>redirect_uri</code> is in its registration <em>before</em> ever issuing a redirect, so we can't be turned into an open redirector. Protocol errors after that point bounce back to the validated URI with <code>error</code>/<code>state</code>. Only <code>code_challenge_method=S256</code> is accepted. DCR rejects redirect URIs that aren't https or http-loopback.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span>No refresh_token grant in v1</h3>
+  <p>Privy session refresh is a browser concern (the SDK holds the refresh token), not something the server SDK exposes cleanly. So we advertise only <code>authorization_code</code>. When the Privy access token expires (~1h), the MCP client re-runs <code>/authorize</code>; because the user's Privy session cookie persists on our origin, that re-auth is typically silent. <code>expires_in</code> is derived from the token's own <code>exp</code> claim so clients refresh on time.</p>
+
+  <h3><span class="tag tag-open">open</span>Browser login page is unverified without live Privy creds</h3>
+  <p>The login page (<code>login-page.ts</code>) loads React + <code>@privy-io/react-auth</code> as browser-native ESM from esm.sh (no build step, <code>React.createElement</code> so no in-browser Babel). Everything <em>around</em> it is unit-tested (10 tests, full register&rarr;authorize&rarr;consent&rarr;token flow over a live ephemeral server) and smoke-tested against a running server. But the actual Privy login modal can only be exercised with a real Privy <code>appId</code> whose "Allowed origins" includes the server's <code>publicBaseUrl</code> — i.e. one live deploy. Two specific risks to confirm on that first run: (1) esm.sh reliably serves the (heavy) react-auth bundle; (2) <code>getAccessToken()</code> returns a token the server-side verifier accepts. If esm.sh proves flaky, the fallback is a tiny Vite-built static asset.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Signing secret reuses <code>MONAD_MCP_APPROVAL_SECRET</code></h3>
+  <p>Client-id signing uses the existing approval secret. If unset, the server logs a warning and generates an ephemeral one at boot — the flow still works, but registered clients invalidate on restart, so a stable secret is recommended for any real deploy.</p>
+
+  <h2>9. Read-public / write-gated split (optional bearer auth)</h2>
+  <p>When Privy was configured, the entire <code>POST /mcp</code> endpoint was wrapped in the SDK's <code>requireBearerAuth</code>, so <em>every</em> call — including read-only tools and even <code>initialize</code>/<code>tools/list</code> — got a <code>401</code> without a token. On the live hosted endpoint (which has Privy secrets) this silently broke the advertised "paste the URL, read with zero auth" flow: a client that can't do interactive OAuth (headless loaders, some connectors) enumerated zero tools and reported the server as "unreachable." The fix splits read from write at the transport edge.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Endpoint auth is now <em>optional</em>; writes self-gate per-tool</h3>
+  <p>New middleware <code>optionalBearerAuth</code> (<code>src/auth/optional-bearer.ts</code>) replaces <code>requireBearerAuth</code> on <code>/mcp</code> by default. No <code>Authorization</code> header &rarr; the request passes through anonymously and runs read tools; the existing per-tool gate in <code>runTool</code> (<code>def.kind === "write" &amp;&amp; !auth</code> &rarr; <code>AuthRequiredError</code>) already blocks writes, so no token is ever needed to read. A valid <code>Bearer</code> token is verified (same Privy verifier) and attached as <code>req.auth</code>, which the Streamable-HTTP transport forwards as <code>extra.authInfo</code> to unlock writes. The write-gating logic didn't change — only <em>where</em> the read/write boundary is enforced moved from the endpoint to the tool.</p>
+
+  <h3><span class="tag tag-decision">decision</span>A malformed/expired token is a hard <code>401</code>, not a silent downgrade</h3>
+  <p>If a client bothers to send a bearer, it meant to authenticate, so a bad or expired one returns <code>401</code> with a spec-compliant <code>WWW-Authenticate</code> challenge (pointing at the resource-metadata URL) rather than quietly falling back to anonymous read-only. Only a genuinely <em>absent</em> header is treated as anonymous. This mirrors the SDK's <code>requireBearerAuth</code> behavior for the present-but-invalid case, including the same expiry checks.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Writes fail in-band, so anonymous clients aren't auto-prompted to log in</h3>
+  <p>Because anonymous reads never receive a <code>401</code>, a spec-compliant client won't <em>automatically</em> trigger its OAuth flow — a write instead returns an in-band <code>auth_required</code> tool result telling the user to sign in. That's the right call for the primary use case (frictionless reads) and the OAuth discovery metadata is still served, so a client that wants write access can authenticate proactively. The alternative — <code>401</code>-ing writes at the transport to force the OAuth handshake — would require routing per-tool kind before the JSON-RPC body is dispatched, which the stateless transport doesn't expose cleanly.</p>
+
+  <h3><span class="tag tag-decision">decision</span><code>MONAD_MCP_REQUIRE_AUTH</code> escape hatch preserves strict mode</h3>
+  <p>Operators who want the old "token for everything" posture set <code>MONAD_MCP_REQUIRE_AUTH=true</code>, which swaps <code>optionalBearerAuth</code> back for the SDK's strict <code>requireBearerAuth</code>. Parsed with an explicit allow-list (<code>1/true/yes/on</code>) rather than <code>z.coerce.boolean()</code>, which would coerce the string <code>"false"</code> to <code>true</code> (any non-empty string is truthy) — a footgun covered by a regression test.</p>
+
+  <h2>10. What ships in v1</h2>
   <ul>
     <li>TypeScript project: tsconfig, vitest, biome, .env.example, LICENSE</li>
     <li>MCP server: stdio + Streamable HTTP entrypoints, McpServer factory, registerTool/runTool split</li>

@@ -53,12 +53,25 @@ attestation), so the npm page shows it was built from this repo + commit.
 ## 2. Deploy the hosted HTTP endpoint
 
 Ships `dist/server-http.js` (Streamable-HTTP MCP transport) on
-[Fly.io](https://fly.io). With no Privy creds it's an **open, read-only gateway**
-— write tools return `AuthRequiredError`, so it's safe to make public. Config
-lives in `Dockerfile` + `fly.toml`.
+[Fly.io](https://fly.io). Config lives in `Dockerfile` + `fly.toml`.
 
-> **Live now:** https://monad-mcp.fly.dev/mcp (health: https://monad-mcp.fly.dev/health).
-> The instructions below are the runbook for re-deploying or standing up your own.
+The `/mcp` endpoint has **three auth modes**, chosen by your env:
+
+| Mode | Env | Read tools | Write tools |
+|------|-----|------------|-------------|
+| **Open** | no `PRIVY_*` | anonymous | run with no wallet check |
+| **Split** (default with Privy) | `PRIVY_APP_ID` + `PRIVY_APP_SECRET` | anonymous | require a Privy bearer token (`auth_required` until signed in) |
+| **Strict** | Privy + `MONAD_MCP_REQUIRE_AUTH=true` | require a bearer token | require a bearer token |
+
+**Split** is the recommended public posture: anyone can paste the URL and read
+live chain data with zero setup, while transfers/swaps/stakes are gated behind a
+Privy sign-in. An unauthenticated read never gets a `401`; only a write (or a
+malformed/expired token) does. Set `MONAD_MCP_REQUIRE_AUTH=true` only if you want
+to lock reads down too.
+
+> **Live now:** https://monad-mcp.fly.dev/mcp (health: https://monad-mcp.fly.dev/health),
+> running in **Split** mode (`privy_enabled:true`). The instructions below are the
+> runbook for re-deploying or standing up your own.
 
 ### Deploy
 
@@ -81,11 +94,13 @@ fly deploy
 
 ```bash
 curl https://monad-mcp.fly.dev/health
-# {"ok":true,"version":"0.1.0","default_network":"testnet","privy_enabled":false}
+# {"ok":true,"version":"0.1.0","default_network":"testnet","privy_enabled":true}
 ```
 
-Then connect a client to `https://monad-mcp.fly.dev/mcp` — see
-[connect-claude.md → Option B](./connect-claude.md#option-b--hosted-url-read-only).
+`privy_enabled:true` means the live endpoint is in **Split** mode — reads are
+public, writes need a sign-in. A bare deploy with no `PRIVY_*` shows `false` (Open
+mode). Then connect a client to `https://monad-mcp.fly.dev/mcp` — see
+[connect-claude.md](./connect-claude.md).
 
 ### (Optional) test the container locally first
 
@@ -99,8 +114,13 @@ curl http://localhost:8787/health
 
 ### (Optional) enable write tools on your own deploy
 
-A hosted write-enabled endpoint also needs Privy signing infrastructure. Set the
-secrets (they're encrypted at rest on Fly, never in the image):
+Adding Privy creds switches the endpoint from **Open** to **Split** mode: reads
+stay public (paste the URL, no login), and write tools unlock the full **ask for
+a transaction → sign in → send** flow. The server runs a small OAuth 2.1
+authorization server in front of Privy login (`/oauth/register`, `/authorize`,
+`/token`), and the bearer token it issues is the user's own Privy access token.
+
+Three things to set:
 
 ```bash
 fly secrets set \
@@ -108,12 +128,32 @@ fly secrets set \
   PRIVY_APP_SECRET=xxxx \
   PRIVY_AUTHORIZATION_PRIVATE_KEY=... \
   PRIVY_KEY_QUORUM_ID=... \
-  PUBLIC_BASE_URL=https://<app-name>.fly.dev
+  PUBLIC_BASE_URL=https://<app-name>.fly.dev \
+  MONAD_MCP_APPROVAL_SECRET=$(openssl rand -hex 32)   # stable secret for signing client_ids
 ```
 
-Once `PRIVY_APP_ID`/`PRIVY_APP_SECRET` are present, `/mcp` switches to requiring
-an OAuth 2.1 bearer token (the per-user Privy identity) and the approval flow
-goes live. See [claude-desktop.md](./claude-desktop.md) for the bootstrap details.
+Then, in the **Privy dashboard → Settings → Allowed origins**, add your
+`PUBLIC_BASE_URL` (e.g. `https://<app-name>.fly.dev`). Without this the embedded
+login modal on `/authorize` refuses to initialise.
+
+How a client connects after that: read tools work anonymously straight away. When
+the agent calls a write tool it gets an `auth_required` result; an OAuth-capable
+client then registers via `/oauth/register`, opens `/authorize` in a browser where
+the user logs in with Privy, and exchanges the resulting code at `/token`. From
+then on each transaction still surfaces its own approval page. (A client that
+sends a malformed or expired bearer gets a `401` pointing at the discovery
+metadata, prompting re-auth.)
+
+> ⚠️ **Newly built — verify on first deploy.** The OAuth protocol layer is
+> unit-tested and smoke-tested, but the in-browser Privy login step can only be
+> exercised against a real Privy app + allowed origin. On your first deploy,
+> confirm: (1) the `/authorize` page loads the Privy SDK (it's pulled from
+> esm.sh), and (2) login completes and a `transfer` round-trips. See the "open"
+> note in `implementation-notes.html`.
+>
+> Even before that login is verified, **Split** mode is safe to share: the worst
+> an unauthenticated visitor can do is read public chain data, exactly like the
+> `npx` package. Writes simply return `auth_required` until sign-in works.
 
 ### Other hosts
 

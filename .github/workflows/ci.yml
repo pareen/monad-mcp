@@ -1,0 +1,25 @@
+name: CI
+
+# Runs lint + typecheck + tests + build. Fires on every pull request, and is
+# called by fly-deploy.yml before it ships to production (so a red build can't
+# auto-deploy to Fly). Not triggered on push-to-main directly — fly-deploy.yml
+# invokes it there via `uses:`, so main runs CI exactly once.
+on:
+  pull_request:
+  workflow_call:
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build

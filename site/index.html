@@ -3,117 +3,151 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>monad-mcp — your agent's gateway to Monad</title>
-<meta name="description" content="An MCP server that lets AI agents check balances, transfer, swap, lend, stake, bridge and pay on the Monad blockchain — with Privy-backed signing, session keys, and per-transaction approval." />
-<meta property="og:title" content="monad-mcp — your agent's gateway to Monad" />
-<meta property="og:description" content="AI agents that act on Monad: transfer, swap, lend, stake, bridge, pay — keys held by Privy, every action behind your approval." />
+<title>monad-mcp — connect Monad to Claude & ChatGPT</title>
+<meta name="description" content="Give Claude or ChatGPT a Monad wallet. Paste one URL or run one command to let your AI agent check balances, transfer, swap, lend, stake, bridge, and pay on Monad — wallet keys held by Privy, every write behind your approval." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23836ef9'/%3E%3C/svg%3E" />
+<meta property="og:title" content="monad-mcp — connect Monad to Claude & ChatGPT" />
+<meta property="og:description" content="Paste one URL to give your AI agent a Monad wallet: balances, transfers, swaps, staking, bridging — wallet keys with Privy, every write behind your approval." />
 <meta property="og:type" content="website" />
-<style>
-  :root {
-    --bg: #07070a; --panel: #111118; --panel2: #16161f; --border: #24242f;
-    --fg: #f5f5fa; --muted: #9a9ab0; --accent: #836ef9; --accent2: #a78bfa;
-    --ok: #3acf86; --warn: #ffb454; --danger: #ff5c5c; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  body { margin: 0; background: radial-gradient(1200px 600px at 50% -200px, #1a1430 0%, var(--bg) 60%); color: var(--fg);
-    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; line-height: 1.55; -webkit-font-smoothing: antialiased; }
-  a { color: var(--accent2); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
-  header { padding: 18px 0; display: flex; align-items: center; justify-content: space-between; }
-  .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.01em; }
-  .logo .dot { width: 14px; height: 14px; border-radius: 4px; background: var(--accent); box-shadow: 0 0 18px var(--accent); }
-  nav a { color: var(--muted); margin-left: 22px; font-size: 14px; }
-  .hero { text-align: center; padding: 70px 0 40px; }
-  .badge { display: inline-block; font-size: 12px; color: var(--accent2); border: 1px solid var(--border);
-    background: var(--panel); padding: 5px 12px; border-radius: 999px; margin-bottom: 22px; }
-  h1 { font-size: clamp(34px, 6vw, 60px); line-height: 1.05; margin: 0 0 18px; letter-spacing: -0.03em; }
-  h1 .grad { background: linear-gradient(100deg, var(--accent) 10%, #d6c7ff 60%, var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .sub { font-size: clamp(16px, 2.4vw, 21px); color: var(--muted); max-width: 680px; margin: 0 auto 32px; }
-  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 11px; font-weight: 600; font-size: 15px; border: 1px solid transparent; cursor: pointer; }
-  .btn.primary { background: var(--accent); color: #fff; box-shadow: 0 6px 30px -8px var(--accent); }
-  .btn.primary:hover { background: var(--accent2); text-decoration: none; }
-  .btn.ghost { background: var(--panel); border-color: var(--border); color: var(--fg); }
-  .btn.ghost:hover { border-color: var(--accent); text-decoration: none; }
-  section { padding: 56px 0; }
-  h2 { font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.02em; margin: 0 0 8px; text-align: center; }
-  .lead { color: var(--muted); text-align: center; max-width: 640px; margin: 0 auto 36px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
-  .card h3 { margin: 0 0 8px; font-size: 17px; }
-  .card p { margin: 0; color: var(--muted); font-size: 14px; }
-  .card .ic { font-size: 22px; margin-bottom: 10px; display: block; }
-  /* demo */
-  .demo { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
-  .demo .bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; background: var(--panel2); border-bottom: 1px solid var(--border); }
-  .demo .bar .d { width: 11px; height: 11px; border-radius: 50%; }
-  .demo .bar .d.r { background: #ff5f57; } .demo .bar .d.y { background: #febc2e; } .demo .bar .d.g { background: #28c840; }
-  .demo .bar .t { margin-left: 10px; color: var(--muted); font-size: 13px; font-family: var(--mono); }
-  .demo .body { padding: 18px; }
-  .demo .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .demo select, .demo input, .demo button { font-family: var(--mono); font-size: 13px; border-radius: 9px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); padding: 10px 12px; }
-  .demo input { flex: 1; min-width: 220px; }
-  .demo button { background: var(--accent); color: #fff; border-color: var(--accent); cursor: pointer; font-weight: 600; }
-  .demo button:hover { background: var(--accent2); }
-  .demo .examples { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-  .demo .chip { font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; cursor: pointer; background: var(--panel2); }
-  .demo .chip:hover { border-color: var(--accent); color: var(--fg); }
-  .demo pre { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; overflow: auto; font-family: var(--mono); font-size: 13px; margin: 0; max-height: 320px; white-space: pre-wrap; word-break: break-word; }
-  .note { font-size: 12px; color: var(--muted); margin-top: 10px; }
-  .toolgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
-  .tool { font-family: var(--mono); font-size: 12.5px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: var(--fg); }
-  .tool.w { border-left: 3px solid var(--accent); }
-  .tool.r { border-left: 3px solid var(--ok); }
-  .steps { counter-reset: s; max-width: 720px; margin: 0 auto; }
-  .step { counter-increment: s; position: relative; padding: 0 0 22px 48px; }
-  .step:before { content: counter(s); position: absolute; left: 0; top: 0; width: 32px; height: 32px; border-radius: 9px; background: var(--accent); color: #fff; display: grid; place-items: center; font-weight: 700; }
-  .step:not(:last-child):after { content: ""; position: absolute; left: 15px; top: 36px; bottom: 0; width: 2px; background: var(--border); }
-  .step h4 { margin: 4px 0 4px; }
-  .step p { margin: 0; color: var(--muted); font-size: 14px; }
-  code.inl { font-family: var(--mono); background: var(--panel2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 5px; font-size: 0.92em; }
-  footer { border-top: 1px solid var(--border); padding: 30px 0 50px; color: var(--muted); font-size: 13px; text-align: center; }
-  .kpis { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
-  .kpi { text-align: center; } .kpi .n { font-size: 30px; font-weight: 800; color: var(--fg); } .kpi .l { color: var(--muted); font-size: 13px; }
-  .disclaimer { background: rgba(255,180,84,0.08); border: 1px solid var(--warn); color: #ffd9a0; border-radius: 10px; padding: 12px 14px; font-size: 13px; }
-</style>
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div class="logo"><span class="dot"></span> monad-mcp</div>
+
+<header class="site" id="hdr">
+  <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;padding:0">
+    <a class="logo" href="#top"><span class="dot"></span> monad-mcp <span class="tag">MCP</span></a>
     <nav>
-      <a href="#how">How it works</a>
-      <a href="#demo">Live demo</a>
-      <a href="#tools">Tools</a>
+      <a href="#connect">Connect</a>
+      <a href="#demo" class="hide-sm">Live demo</a>
+      <a href="#tools" class="hide-sm">Tools</a>
+      <a href="#usecases" class="hide-sm">Use cases</a>
+      <a href="#faq" class="hide-sm">FAQ</a>
       <a href="https://github.com/pareen/monad-mcp">GitHub ↗</a>
     </nav>
-  </header>
+  </div>
+</header>
 
+<div class="wrap" id="top">
   <div class="hero">
-    <span class="badge">◆ MCP server for the Monad blockchain</span>
-    <h1>Your agent's gateway to <span class="grad">Monad</span></h1>
-    <p class="sub">Connect any AI agent to a Monad wallet and let it check balances, transfer, swap, lend, stake, bridge, and pay — from chat. Keys stay with Privy. Every action waits for your approval, or runs inside a session-key budget you set.</p>
+    <span class="badge"><span class="live"></span> Live hosted endpoint — connect in ~30 seconds</span>
+    <h1>Give <span class="grad">Claude &amp; ChatGPT</span><br/>a Monad wallet</h1>
+    <p class="sub">monad-mcp is an MCP server that plugs the Monad blockchain into your AI agent. Paste one URL — your agent can read balances, prices, and portfolios instantly. Unlock transfers, swaps, staking, lending, and bridging behind your approval. Wallet keys stay with Privy.</p>
     <div class="cta">
-      <a class="btn primary" href="#demo">▶ Try the live demo</a>
-      <a class="btn ghost" href="https://github.com/pareen/monad-mcp">★ Star on GitHub</a>
+      <a class="btn primary" href="#connect">⚡ Connect your client</a>
+      <a class="btn ghost" href="#demo">▶ Try the live demo</a>
     </div>
     <div class="kpis">
-      <div class="kpi"><div class="n">58</div><div class="l">agent tools</div></div>
+      <div class="kpi"><div class="n">46</div><div class="l">agent tools</div></div>
       <div class="kpi"><div class="n">5</div><div class="l">DeFi plugins</div></div>
-      <div class="kpi"><div class="n">129</div><div class="l">tests passing</div></div>
-      <div class="kpi"><div class="n">0</div><div class="l">keys on the server</div></div>
+      <div class="kpi"><div class="n">1</div><div class="l">paste to connect</div></div>
+      <div class="kpi"><div class="n">0</div><div class="l">wallet keys on server</div></div>
     </div>
   </div>
 </div>
 
+<!-- ===================== CONNECT ===================== -->
+<section id="connect" class="tight">
+  <div class="wrap">
+    <p class="eyebrow">Get connected</p>
+    <h2>Pick your client</h2>
+    <p class="lead">You only need to add one hosted connector URL to Claude or ChatGPT. No wallet setup, no keys, no install. Once connected, ask for Monad balances, tokens, prices, and portfolios in plain English.</p>
+
+    <div class="connect">
+      <div class="tabbar" role="tablist" aria-label="MCP clients">
+        <button class="tab-btn" role="tab" aria-selected="true" aria-controls="tab-claude" id="t-claude">Claude</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-chatgpt" id="t-chatgpt">ChatGPT</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-code" id="t-code">Claude Code</button>
+      </div>
+
+      <!-- Claude -->
+      <div class="tab-panel active" id="tab-claude" role="tabpanel" aria-labelledby="t-claude">
+        <h3>Claude</h3>
+        <p class="desc">Use Claude's connector settings. This works in Claude on the web and in the desktop app.</p>
+
+        <div class="plain-steps">
+          <div class="plain-step">
+            <span>1</span>
+            <div><strong>Open Claude settings</strong><p>Open <b>Settings</b>, then choose <b>Connectors</b>.</p></div>
+          </div>
+          <div class="plain-step">
+            <span>2</span>
+            <div><strong>Add Monad</strong><p>Choose <b>Add custom connector</b>. Name it <code class="inl">monad</code>.</p></div>
+          </div>
+          <div class="plain-step">
+            <span>3</span>
+            <div><strong>Paste this URL</strong>
+              <div class="codeblock copy-url">
+                <pre>https://monad-mcp.fly.dev/<wbr>mcp</pre>
+                <button class="copy">Copy URL</button>
+              </div>
+            </div>
+          </div>
+          <div class="plain-step">
+            <span>4</span>
+            <div><strong>Start a new chat</strong><p>Turn on the Monad connector and ask for a balance, token, price, or portfolio.</p></div>
+          </div>
+        </div>
+
+        <div class="callout">Nothing runs on your computer. Claude connects to the hosted Monad connector.</div>
+      </div>
+
+      <!-- ChatGPT -->
+      <div class="tab-panel" id="tab-chatgpt" role="tabpanel" aria-labelledby="t-chatgpt">
+        <h3>ChatGPT</h3>
+        <p class="desc">Use ChatGPT's Apps or Connectors settings to add the hosted Monad connector.</p>
+
+        <div class="plain-steps">
+          <div class="plain-step">
+            <span>1</span>
+            <div><strong>Open Apps or Connectors</strong><p>In ChatGPT settings, open <b>Apps</b> or <b>Connectors</b>.</p></div>
+          </div>
+          <div class="plain-step">
+            <span>2</span>
+            <div><strong>Add Monad</strong><p>Choose <b>Create</b> or <b>Add custom connector</b>. Name it <code class="inl">monad</code>.</p></div>
+          </div>
+          <div class="plain-step">
+            <span>3</span>
+            <div><strong>Paste this URL</strong>
+              <div class="codeblock copy-url"><pre>https://monad-mcp.fly.dev/<wbr>mcp</pre><button class="copy">Copy URL</button></div>
+              <p>Choose no authentication if ChatGPT asks.</p>
+            </div>
+          </div>
+          <div class="plain-step">
+            <span>4</span>
+            <div><strong>Save and chat</strong><p>Let ChatGPT scan the tools, save the connector, then enable it in a chat.</p></div>
+          </div>
+        </div>
+        <div class="callout">Nothing runs on your computer. ChatGPT connects to the hosted Monad connector.</div>
+      </div>
+
+      <!-- Claude Code -->
+      <div class="tab-panel" id="tab-code" role="tabpanel" aria-labelledby="t-code">
+        <h3>Claude Code <span class="badge-mini">terminal app</span></h3>
+        <p class="desc">Claude Code is the developer-style client. If you use it, paste this one command into your terminal.</p>
+
+        <div class="substep">1 · Add Monad</div>
+        <div class="codeblock">
+          <pre><span class="tok-k">claude</span> mcp add <span class="tok-k">--transport</span> http monad <span class="tok-s">https://monad-mcp.fly.dev/mcp</span></pre>
+          <button class="copy">Copy</button>
+        </div>
+
+        <div class="substep">2 · Try it</div>
+        <div class="try-card">Restart Claude Code, then ask: <strong>What's the Monad balance of 0x7E274bCA90eEfa81761080e074AFb1D354a0c552?</strong></div>
+      </div>
+    </div>
+
+    <p class="note" style="text-align:center;margin-top:16px">The hosted connector may take a few seconds to wake up if it has been idle.</p>
+  </div>
+</section>
+
+<!-- ===================== WHY ===================== -->
 <section id="why">
   <div class="wrap">
+    <p class="eyebrow">Why monad-mcp</p>
     <h2>Built for agents, not humans clicking buttons</h2>
     <p class="lead">A person will approve every transaction. An agent running a strategy at 2am won't. The hard part isn't wrapping an RPC — it's letting an agent act autonomously inside a boundary you trust.</p>
     <div class="grid">
-      <div class="card"><span class="ic">🔑</span><h3>Keys never touch the server</h3><p>Privy holds the private key in a TEE. The MCP server builds unsigned transactions and hands them off — it can never move funds on its own.</p></div>
+      <div class="card"><span class="ic">🔑</span><h3>Wallet keys stay with Privy</h3><p>Privy holds the wallet private key in a TEE. The MCP server builds unsigned transactions and hands them off — it can never move funds without approval or a scoped grant.</p></div>
       <div class="card"><span class="ic">✋</span><h3>Approval by default</h3><p>Write actions return a one-time approval link with a simulated asset diff. You review and confirm; the agent polls for the tx hash.</p></div>
       <div class="card"><span class="ic">⚡</span><h3>Session keys for autonomy</h3><p>Authorize a scoped budget once — spend cap, expiry, recipient + function allowlists — and the agent transacts within it, no per-tx clicks.</p></div>
       <div class="card"><span class="ic">🛡️</span><h3>Defense in depth</h3><p>Each grant is mirrored as a Privy wallet policy, so Privy itself refuses transactions outside the envelope — even if the server is compromised.</p></div>
@@ -121,10 +155,12 @@
   </div>
 </section>
 
+<!-- ===================== HOW ===================== -->
 <section id="how">
   <div class="wrap">
+    <p class="eyebrow">The write flow</p>
     <h2>How it works</h2>
-    <p class="lead">From "send 1 MON" to a confirmed transaction — without the agent ever holding a key.</p>
+    <p class="lead">From “send 1 MON” to a confirmed transaction — without the agent ever holding a key.</p>
     <div class="steps">
       <div class="step"><h4>You ask in chat</h4><p>“Stake 1 MON with FastLane, then send 0.1 MON to alice.mon.”</p></div>
       <div class="step"><h4>The agent builds an unsigned transaction</h4><p>The MCP server encodes the call with viem, simulates the asset changes, and stores it — returning an approval URL carrying a one-time capability token.</p></div>
@@ -134,8 +170,10 @@
   </div>
 </section>
 
+<!-- ===================== DEMO ===================== -->
 <section id="demo">
   <div class="wrap">
+    <p class="eyebrow">See it for real</p>
     <h2>Live demo — read tools, real chain</h2>
     <p class="lead">These are the server's read tools running against a live Monad RPC, right in your browser. No wallet, no signing — exactly what your agent sees before it ever proposes a transaction.</p>
     <div class="demo">
@@ -161,28 +199,231 @@
         <div class="note">RPC: <span id="rpcurl"></span> · token balance needs an ERC-20 contract in the 2nd box (format: <code class="inl">holder,token</code>).</div>
       </div>
     </div>
-    <p class="note" style="text-align:center;margin-top:14px">Want the full thing — transfers, swaps, staking? That's the <b>write</b> side, gated by Privy approval. <a href="https://github.com/pareen/monad-mcp/blob/main/docs/claude-desktop.md">Wire it into Claude Desktop →</a></p>
+    <p class="note" style="text-align:center;margin-top:14px">This is the same live Monad data your AI app gets through the hosted connector.</p>
   </div>
 </section>
 
+<!-- ===================== TOOLS ===================== -->
 <section id="tools">
   <div class="wrap">
-    <h2>58 tools, one approval model</h2>
+    <p class="eyebrow">The full surface</p>
+    <h2>46 tools, one approval model</h2>
     <p class="lead"><span style="color:var(--ok)">●</span> read (no auth) &nbsp;&nbsp; <span style="color:var(--accent)">●</span> write (Privy-signed, approval or session key)</p>
     <div class="toolgrid" id="tools-list"></div>
   </div>
 </section>
 
-<footer>
+<!-- ===================== USE CASES ===================== -->
+<section id="usecases">
   <div class="wrap">
-    <p>Open source · MIT · <a href="https://github.com/pareen/monad-mcp">github.com/pareen/monad-mcp</a></p>
+    <p class="eyebrow">What to say</p>
+    <h2>Typical prompts to get you started</h2>
+    <p class="lead">Once the connector is on, just talk to your agent in plain English. Here are prompts that map onto real tools — click any one to copy it, paste it into Claude or ChatGPT, and go.</p>
+
+    <div class="usecases">
+      <div class="uc">
+        <div class="uc-head"><span class="ic">🔍</span><h3>Explore &amp; monitor</h3><span class="pill r">read · no login</span></div>
+        <div class="prompt-list">
+          <button class="prompt">What's the MON balance of 0x7E274bCA90eEfa81761080e074AFb1D354a0c552?<span class="ico">⧉</span></button>
+          <button class="prompt">Show me the full portfolio for vitalik.mon<span class="ico">⧉</span></button>
+          <button class="prompt">What's the current price of WMON and USDC?<span class="ico">⧉</span></button>
+          <button class="prompt">List the last 10 transactions for my wallet<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">🛡️</span><h3>Check before you act</h3><span class="pill r">read · no login</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Is token 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea safe to trade? Check liquidity and pair age<span class="ico">⧉</span></button>
+          <button class="prompt">Simulate sending 5 MON to alice.mon — will it succeed?<span class="ico">⧉</span></button>
+          <button class="prompt">Read the totalSupply on this ERC-20 contract<span class="ico">⧉</span></button>
+          <button class="prompt">Get me a bridge quote for 20 USDC from Monad to Base<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">🔁</span><h3>Trade &amp; swap</h3><span class="pill w">write · approval</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Swap 10 MON for USDC on Uniswap — show me the quote first<span class="ico">⧉</span></button>
+          <button class="prompt">What's the best bid and ask for MON/USDC on Kuru?<span class="ico">⧉</span></button>
+          <button class="prompt">Place a limit order to buy 100 USDC worth of MON 5% below market<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">🌱</span><h3>Stake &amp; earn</h3><span class="pill w">write · approval</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Stake 5 MON with FastLane for shMON<span class="ico">⧉</span></button>
+          <button class="prompt">Stake 5 MON into Kintsu and show my sMON position<span class="ico">⧉</span></button>
+          <button class="prompt">Supply 50 USDC to Morpho and tell me the borrow APY<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">💸</span><h3>Send &amp; pay</h3><span class="pill w">write · approval</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Send 0.1 MON to alice.mon<span class="ico">⧉</span></button>
+          <button class="prompt">Bridge 20 USDC from Monad to Base<span class="ico">⧉</span></button>
+          <button class="prompt">Pay for this x402 service and report the tx hash<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">⚡</span><h3>Hands-free autonomy</h3><span class="pill w">write · session key</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Grant a session key capped at 5 MON that expires in 1 hour, only for FastLane staking<span class="ico">⧉</span></button>
+          <button class="prompt">List my active session keys<span class="ico">⧉</span></button>
+          <button class="prompt">Revoke the session key I created earlier<span class="ico">⧉</span></button>
+        </div>
+      </div>
+    </div>
+
+    <p class="uc-tip" style="text-align:center">Read prompts work on the hosted connector with no login. Write prompts (swap, stake, send, grant) return an approval link you confirm — or run inside a session key you've already approved.</p>
+  </div>
+</section>
+
+<!-- ===================== FAQ ===================== -->
+<section id="faq">
+  <div class="wrap">
+    <p class="eyebrow">Common questions</p>
+    <h2>What people ask first</h2>
+    <div class="faq-list">
+
+      <details class="faq-item">
+        <summary>Can the agent steal my funds? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>No. The agent never receives a private key and cannot sign directly. For normal write tools it builds an <em>unsigned</em> transaction and returns an approval URL — you review and confirm it in the browser. The only exception is an action that fits inside a session-key grant you already approved, and even then it stays within that grant's configured limits.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I try it without installing anything? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Yes. Add the hosted connector URL <code class="inl">https://monad-mcp.fly.dev/mcp</code> in Claude or ChatGPT and start asking questions. The hosted endpoint exposes read tools — balances, portfolio data, token lookup, prices, transaction history, receipts, and contract reads — with no login.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Do I need to host anything? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Not for reads. The public setup uses the hosted Monad connector — paste the URL and go. Self-hosting with your own Privy configuration is what unlocks the fully tested write path: transfers, swaps, staking, lending, contract writes, x402 payments, bridge execution, and session-key grants.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do approval URLs work? <span class="chev">▼</span></summary>
+        <div class="faq-body">
+          <p>Write tools follow a stored-request pattern:</p>
+          <ul>
+            <li>The agent calls a write tool.</li>
+            <li>The server builds an unsigned payload plus a human-readable summary and stores it under a UUID.</li>
+            <li>The tool returns an approval URL.</li>
+            <li>You open it, review exactly what moves, and approve or reject.</li>
+            <li>The agent calls <code class="inl">poll_request</code> to get the final status and transaction hash.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What are session keys? <span class="chev">▼</span></summary>
+        <div class="faq-body">
+          <p>Scoped grants that let the agent act without a per-transaction approval URL. A grant can limit total MON spend, expiration time, allowed target addresses, and allowed function selectors.</p>
+          <p>If a write action is covered by an active grant, the tool submits immediately. If not, it falls back to the normal approval URL flow. Each grant is also mirrored as a Privy wallet policy, so Privy itself refuses transactions outside the envelope.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I revoke a session key? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Yes. Use <code class="inl">list_session_keys</code> to inspect active and recent grants, then <code class="inl">revoke_session_key</code> to cancel one. Prefer short-lived keys with small caps when trying autonomous flows.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Does the MCP server hold my wallet private key? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>No. Wallet custody is handled by Privy, which holds the key in a TEE. The server may hold a Privy <em>authorization</em> key used for server-side wallet authorization, but that is not your wallet's private key — it can never move funds on its own.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Which Monad networks and clients are supported? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Monad mainnet (<code class="inl">143</code>) and testnet (<code class="inl">10143</code>). Some plugins are mainnet-only and are skipped on testnet. The server speaks MCP over stdio and Streamable HTTP, so it works with Claude (web &amp; desktop), Claude Code, ChatGPT, Cursor, and other Streamable-HTTP MCP clients.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Which DeFi protocols ship with it? <span class="chev">▼</span></summary>
+        <div class="faq-body">
+          <ul>
+            <li><strong>Uniswap v3</strong> — quotes, swaps, ERC-20 approvals.</li>
+            <li><strong>Kintsu</strong> — MON → sMON liquid staking.</li>
+            <li><strong>FastLane</strong> — MON → shMON liquid staking.</li>
+            <li><strong>Morpho</strong> — lending and borrowing.</li>
+            <li><strong>Kuru</strong> — onchain CLOB markets.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Should I use mainnet funds? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Start on testnet. Before using mainnet funds, verify Privy configuration, protocol addresses, token addresses, approval URLs, and session-key limits — then use small amounts until you've tested the full flow end to end.</p></div>
+      </details>
+
+    </div>
+    <p class="note" style="text-align:center;margin-top:18px">Full FAQ: <a href="https://github.com/pareen/monad-mcp/blob/main/docs/FAQ.md">docs/FAQ.md</a></p>
+  </div>
+</section>
+
+<footer class="site">
+  <div class="wrap">
+    <p>Open source · MIT · <a href="https://github.com/pareen/monad-mcp">github.com/pareen/monad-mcp</a> · <a href="https://github.com/pareen/monad-mcp/blob/main/docs/FAQ.md">FAQ</a></p>
+    <p>This is an experimental product — use at your own risk.</p>
     <p>Not affiliated with Monad Foundation or Privy. Verify all contract addresses before mainnet use. Nothing here is financial advice.</p>
   </div>
 </footer>
 
 <script>
+// ---------- sticky header shadow ----------
+const hdr = document.getElementById("hdr");
+addEventListener("scroll", () => hdr.classList.toggle("scrolled", scrollY > 8), { passive: true });
+
+// ---------- connect tabs ----------
+const tabBtns = [...document.querySelectorAll(".tab-btn")];
+tabBtns.forEach((btn) => btn.addEventListener("click", () => {
+  tabBtns.forEach((b) => {
+    const sel = b === btn;
+    b.setAttribute("aria-selected", sel);
+    document.getElementById(b.getAttribute("aria-controls")).classList.toggle("active", sel);
+  });
+}));
+
+// ---------- copy buttons ----------
+document.querySelectorAll(".copy").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const pre = btn.parentElement.querySelector("pre");
+    const text = pre.innerText.replace(/\n+$/, "");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const r = document.createRange(); r.selectNodeContents(pre);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      try { document.execCommand("copy"); } catch {}
+      s.removeAllRanges();
+    }
+    const old = btn.textContent;
+    btn.textContent = "Copied ✓"; btn.classList.add("copied");
+    setTimeout(() => { btn.textContent = old; btn.classList.remove("copied"); }, 1400);
+  });
+});
+
+// ---------- click-to-copy prompts ----------
+document.querySelectorAll(".prompt").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const text = btn.querySelector(".ico")
+      ? btn.textContent.replace(/⧉\s*$/, "").trim()
+      : btn.textContent.trim();
+    try { await navigator.clipboard.writeText(text); } catch {}
+    const ico = btn.querySelector(".ico");
+    const old = ico ? ico.textContent : "";
+    btn.classList.add("copied");
+    if (ico) ico.textContent = "✓";
+    setTimeout(() => { btn.classList.remove("copied"); if (ico) ico.textContent = old; }, 1400);
+  });
+});
+
+// ---------- live demo ----------
 const RPC = { testnet: "https://testnet-rpc.monad.xyz", mainnet: "https://rpc.monad.xyz" };
-const EXPLORER = { testnet: "https://testnet.monadexplorer.com", mainnet: "https://explorer.monad.xyz" };
+const EXPLORER = { testnet: "https://testnet.monadexplorer.com", mainnet: "https://monadexplorer.com" };
 const out = document.getElementById("out");
 const rpcurlEl = document.getElementById("rpcurl");
 const toolSel = document.getElementById("tool");
@@ -191,21 +432,53 @@ const argEl = document.getElementById("arg");
 
 function refreshRpc() { rpcurlEl.textContent = RPC[netSel.value]; }
 refreshRpc();
-netSel.addEventListener("change", refreshRpc);
 
-const EXAMPLES = {
-  get_balance: ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dEaD"],
-  get_token_balance: ["0x000000000000000000000000000000000000dEaD,0xf817257fed379853cDe0fa4F97AB987181B1E5Ea"],
-  get_tx_receipt: [],
-  block_number: [],
+// real on-chain txs (status: success) so the receipt demo resolves on each network
+const TX_EXAMPLE = {
+  testnet: "0x98dab47a16046ad2c1a21a97e13a16b9ebb3fd7f34584cd7383d887f54912dad",
+  mainnet: "0x437234bc31c40708b9c25e198ddf385e6c08f3b1b3850b3aa4b2dbbbbb7c045c",
 };
+const EXAMPLES = {
+  get_balance: () => ["0x0000000000000000000000000000000000000000", "0x000000000000000000000000000000000000dEaD"],
+  get_token_balance: () => ["0x000000000000000000000000000000000000dEaD,0xf817257fed379853cDe0fa4F97AB987181B1E5Ea"],
+  get_tx_receipt: (net) => [TX_EXAMPLE[net]],
+  block_number: () => [],
+};
+function currentExamples() {
+  const fn = EXAMPLES[toolSel.value];
+  return fn ? fn(netSel.value) : [];
+}
 function renderExamples() {
-  const ex = EXAMPLES[toolSel.value] || [];
+  const ex = currentExamples();
   const box = document.getElementById("examples");
   box.innerHTML = ex.map((e) => `<span class="chip">${e}</span>`).join("");
   box.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => { argEl.value = c.textContent; }));
 }
-toolSel.addEventListener("change", renderExamples); renderExamples();
+// is the current input usable for the given tool? (so we never auto-clobber valid input)
+function validFor(tool, val) {
+  val = (val || "").trim();
+  if (tool === "get_balance") return /^0x[0-9a-fA-F]{40}$/.test(val);
+  if (tool === "get_token_balance") {
+    const [h, t] = val.split(",").map((s) => s.trim());
+    return /^0x[0-9a-fA-F]{40}$/.test(h || "") && /^0x[0-9a-fA-F]{40}$/.test(t || "");
+  }
+  if (tool === "get_tx_receipt") return /^0x[0-9a-fA-F]{64}$/.test(val);
+  return true; // block_number ignores the input
+}
+// load a working example only when the current input doesn't fit the selected tool
+function fillExampleIfNeeded() {
+  if (!validFor(toolSel.value, argEl.value)) argEl.value = currentExamples()[0] || "";
+}
+toolSel.addEventListener("change", () => { renderExamples(); fillExampleIfNeeded(); });
+netSel.addEventListener("change", () => {
+  refreshRpc();
+  renderExamples();
+  // a tx hash is the same shape on both chains but only resolves on its own; swap the demo hash to match
+  if (toolSel.value === "get_tx_receipt" && Object.values(TX_EXAMPLE).includes(argEl.value.trim())) {
+    argEl.value = TX_EXAMPLE[netSel.value];
+  }
+});
+renderExamples();
 
 async function rpc(net, method, params) {
   const res = await fetch(RPC[net], {
@@ -221,7 +494,6 @@ const fmt = (wei, dec = 18) => {
   const whole = b / base; const frac = (b % base).toString().padStart(dec, "0").slice(0, 6).replace(/0+$/, "");
   return frac ? `${whole}.${frac}` : `${whole}`;
 };
-// minimal eth_call encoders for ERC-20 balanceOf/symbol/decimals
 const pad = (h) => h.replace(/^0x/, "").padStart(64, "0");
 async function erc20(net, token, holder) {
   const balData = "0x70a08231" + pad(holder);
@@ -230,7 +502,7 @@ async function erc20(net, token, holder) {
   try { dec = parseInt(await rpc(net, "eth_call", [{ to: token, data: "0x313ce567" }, "latest"]), 16) || 18; } catch {}
   try {
     const s = await rpc(net, "eth_call", [{ to: token, data: "0x95d89b41" }, "latest"]);
-    const hex = s.slice(130).replace(/0+$/, ""); sym = hex ? decodeURIComponent(hex.replace(/(..)/g, "%$1")).replace(/ /g,"") : "TOKEN";
+    const hex = s.slice(130).replace(/0+$/, ""); sym = hex ? decodeURIComponent(hex.replace(/(..)/g, "%$1")).replace(/ /g,"") : "TOKEN";
   } catch {}
   return { bal, dec, sym };
 }
@@ -267,17 +539,27 @@ document.getElementById("run").addEventListener("click", async () => {
   }
 });
 
-// tool catalogue
+// ---------- tool catalogue (46 tools) ----------
 const TOOLS = [
+  // core read
   ["get_address","r"],["get_balance","r"],["get_token_balance","r"],["get_portfolio","r"],
   ["get_transaction_history","r"],["get_tx_receipt","r"],["simulate_transaction","r"],["check_token","r"],
   ["resolve_token","r"],["get_token_price","r"],["list_canonical_tokens","r"],["resolve_name","r"],
   ["read_contract","r"],["decode_return_data","r"],["bridge_quote","r"],["poll_request","r"],
   ["whoami","r"],["list_session_keys","r"],["create_user","r"],
+  // core write
   ["transfer","w"],["write_contract","w"],["pay_for_service","w"],["bridge_execute","w"],
   ["grant_session_key","w"],["revoke_session_key","w"],
-  ["uniswap_swap","w"],["uniswap_quote","r"],["kintsu_stake","w"],["fastlane_stake","w"],
-  ["fastlane_unstake","w"],["morpho_supply","w"],["morpho_borrow","w"],["kuru_place_limit","w"],["kuru_market_swap","w"],
+  // uniswap
+  ["uniswap_quote","r"],["uniswap_swap","w"],["approve_erc20","w"],
+  // kintsu
+  ["kintsu_position","r"],["kintsu_stake","w"],["kintsu_request_unstake","w"],["kintsu_claim_unstake","w"],
+  // fastlane
+  ["fastlane_position","r"],["fastlane_stake","w"],["fastlane_unstake","w"],
+  // morpho
+  ["morpho_market","r"],["morpho_position","r"],["morpho_supply","w"],["morpho_borrow","w"],["morpho_repay","w"],["morpho_withdraw","w"],
+  // kuru
+  ["kuru_best_bid_ask","r"],["kuru_market_params","r"],["kuru_place_limit","w"],["kuru_market_swap","w"],["kuru_cancel_orders","w"],
 ];
 document.getElementById("tools-list").innerHTML = TOOLS.map(([n,k]) => `<div class="tool ${k}">${n}</div>`).join("");
 </script>

@@ -2,6 +2,23 @@
 
 This is the dogfood path: get the server running on your laptop, point Claude Desktop at it, and have a real conversation that moves real testnet MON.
 
+> **Just want to kick the tires (read-only)?** There's a hosted demo endpoint at `https://monad-mcp.fly.dev/mcp` that serves the **read tools only** — balances, portfolio, token lookups, transaction history. The write/approval flow this guide is about (transfers, swaps, session keys) needs a Privy signer and is **not** available on the hosted URL, so for that you must self-host with the steps below. The hosted machine also sleeps after ~5 min idle, so the first call may cold-start.
+>
+> Because Claude Desktop only speaks stdio, point it at the remote URL through the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) shim:
+>
+> ```json
+> {
+>   "mcpServers": {
+>     "monad": {
+>       "command": "npx",
+>       "args": ["-y", "mcp-remote", "https://monad-mcp.fly.dev/mcp"]
+>     }
+>   }
+> }
+> ```
+>
+> The rest of this doc is the full self-hosted path — required for writes, and what you want for a stable, always-on setup.
+
 ## 0. Prereqs
 
 - Node ≥ 20.10
@@ -68,7 +85,7 @@ In a Claude Desktop chat, type:
 
 > What MCP servers are connected?
 
-You should see `monad` listed with ~30 tools across read/write categories. If it's missing, check Claude Desktop's MCP log at `~/Library/Logs/Claude/mcp-server-monad.log` for boot errors — most often a missing env var or a port conflict on the HTTP side.
+You should see `monad` listed with 28 tools across read/write categories. If it's missing, check Claude Desktop's MCP log at `~/Library/Logs/Claude/mcp-server-monad.log` for boot errors — most often a missing env var or a port conflict on the HTTP side.
 
 ## 5. First prompts
 

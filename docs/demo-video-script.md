@@ -124,7 +124,7 @@ TTL." Then a covered `transfer` auto-executes synchronously, no popup.
 
 **VO:**
 > So that's monad-mcp. Your agent gets to be useful. Your keys get to stay yours.
-> Base MCP's shape, pointed at Monad, with real key custody.
+> A clean MCP shape, pointed at Monad, with real key custody.
 >
 > I have to go, the timer's beeping. But you — you're about to walk into the most
 > abundant, *safest* period of your life. I can feel it.

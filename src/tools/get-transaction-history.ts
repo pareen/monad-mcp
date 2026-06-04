@@ -1,19 +1,16 @@
-import { type AbiEvent, parseAbiItem } from "viem";
+import { parseAbiItem } from "viem";
 import { z } from "zod";
 import { type ToolDefinition, addressExplorerUrl } from "./registry.js";
 import { addressSchema, optionalNetwork } from "./schemas.js";
 
-// Public Monad RPC caps eth_getLogs hard: ~100 blocks/query on rpc.monad.xyz
-// (QuickNode) and monadinfra; ~1000 on Alchemy/Ankr. Scanning in 100-block
-// windows works on every provider (just more requests on the generous ones).
-// See the monad://guide/rpc-quirks resource.
-const WINDOW_BLOCKS = 100n;
-// Bound total requests (each window = 2 getLogs calls). 25 windows ≈ 2500 blocks.
-// Deeper history → use the explorer / a dedicated indexer.
-const MAX_WINDOWS = 25;
-const MAX_LOOKBACK = MAX_WINDOWS * Number(WINDOW_BLOCKS);
-// How many windows to scan concurrently (respects public-RPC rate limits).
-const WINDOW_CONCURRENCY = 5;
+// Monad's public RPC rejects any eth_getLogs request spanning more than 100
+// blocks ("eth_getLogs is limited to a 100 range"). A single getLogs over the
+// requested lookback (default 5000) therefore always errored. We scan the
+// range in <=100-block windows and aggregate.
+const MAX_GETLOGS_RANGE = 100n;
+// Bound how many getLogs requests fire concurrently so a large lookback does
+// not trip the public RPC's rate limiter.
+const WINDOW_CONCURRENCY = 8;
 
 const shape = {
   address: addressSchema
@@ -23,39 +20,67 @@ const shape = {
     .number()
     .int()
     .positive()
-    .max(MAX_LOOKBACK)
-    .default(1_000)
+    .max(50_000)
+    .default(5_000)
     .describe(
-      `Number of blocks back from head to scan for ERC-20 Transfer events. The public RPC caps eth_getLogs at ~100 blocks/query, so this is scanned in 100-block windows; capped at ${MAX_LOOKBACK} blocks (~${MAX_WINDOWS} windows). For deeper history use the explorer URL.`,
+      "Number of blocks back from head to scan for ERC-20 Transfer events involving this address. " +
+        "Scanned in 100-block windows (Monad RPC caps eth_getLogs at 100 blocks). Capped at 50k.",
     ),
   network: optionalNetwork,
 };
 
 const transferEvent = parseAbiItem(
   "event Transfer(address indexed from, address indexed to, uint256 value)",
-) as AbiEvent;
+);
 
-interface TransferLog {
-  transactionHash: `0x${string}` | null;
-  blockNumber: bigint | null;
-  address: `0x${string}`;
-  args: { from?: `0x${string}`; to?: `0x${string}`; value?: bigint };
+interface BlockWindow {
+  fromBlock: bigint;
+  toBlock: bigint;
+}
+
+/** Split [fromBlock, toBlock] into inclusive windows spanning at most 100 blocks. */
+function buildWindows(fromBlock: bigint, toBlock: bigint): BlockWindow[] {
+  const windows: BlockWindow[] = [];
+  let start = fromBlock;
+  while (start <= toBlock) {
+    const end = start + MAX_GETLOGS_RANGE > toBlock ? toBlock : start + MAX_GETLOGS_RANGE;
+    windows.push({ fromBlock: start, toBlock: end });
+    start = end + 1n;
+  }
+  return windows;
+}
+
+/** Map over items with a bounded number of in-flight promises. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i] as T);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 /**
  * Lightweight tx history: scans the recent block range for ERC-20 Transfer
- * events where the address is sender or receiver, in public-RPC-safe windows
- * (the RPC rejects wide eth_getLogs ranges — see monad://guide/rpc-quirks).
- * Returns hashes only; full decoded history is the explorer's job until Monad's
- * explorer API stabilizes. Always includes an explorer URL for the full view.
+ * events where the address is sender or receiver. Returns hashes only — full
+ * decoding would require a block-explorer integration which we'll add when
+ * Monad's explorer API stabilizes. Always includes an explorer URL for the
+ * authoritative view.
  */
 export const getTransactionHistoryTool: ToolDefinition<typeof shape> = {
   name: "get_transaction_history",
   title: "Get recent transaction history",
   description:
-    "Returns recent ERC-20 Transfer events involving an address by scanning the last N blocks via RPC " +
-    "(in 100-block windows, since Monad's public RPC caps eth_getLogs range). Bounded to a few thousand " +
-    "blocks — for a complete or deeper view (incl. native transfers and contract calls), use the explorer URL.",
+    "Returns recent ERC-20 Transfer events involving an address by scanning the last N blocks via RPC. " +
+    "For a complete view including native transfers and contract calls, use the explorer URL in the response.",
   kind: "read",
   inputSchema: shape,
   handler: async (args, ctx) => {
@@ -69,52 +94,43 @@ export const getTransactionHistoryTool: ToolDefinition<typeof shape> = {
 
     const client = ctx.server.clients.publicClient(ctx.network);
     const head = await client.getBlockNumber();
-    const lookback = BigInt(args.lookback_blocks);
-    const fromBlock = head > lookback ? head - lookback : 0n;
+    const fromBlock =
+      head > BigInt(args.lookback_blocks) ? head - BigInt(args.lookback_blocks) : 0n;
 
-    // Build [from, to] windows of <= WINDOW_BLOCKS covering [fromBlock, head].
-    const windows: Array<{ from: bigint; to: bigint }> = [];
-    for (let start = fromBlock; start <= head; start += WINDOW_BLOCKS) {
-      const end = start + WINDOW_BLOCKS - 1n;
-      windows.push({ from: start, to: end > head ? head : end });
-    }
-
-    const collected: TransferLog[] = [];
-    let failedWindows = 0;
-
-    // Scan windows in small concurrent batches to respect RPC rate limits.
-    for (let i = 0; i < windows.length; i += WINDOW_CONCURRENCY) {
-      const batch = windows.slice(i, i + WINDOW_CONCURRENCY);
-      const results = await Promise.all(
-        batch.map(async (w) => {
-          try {
-            const [outgoing, incoming] = await Promise.all([
-              client.getLogs({
-                event: transferEvent,
-                args: { from: target },
-                fromBlock: w.from,
-                toBlock: w.to,
-              }),
-              client.getLogs({
-                event: transferEvent,
-                args: { to: target },
-                fromBlock: w.from,
-                toBlock: w.to,
-              }),
-            ]);
-            return [...outgoing, ...incoming] as unknown as TransferLog[];
-          } catch {
-            return null; // window failed (e.g. range/rate limit) — note it, keep going
-          }
-        }),
-      );
-      for (const r of results) {
-        if (r === null) failedWindows += 1;
-        else collected.push(...r);
+    // Scan in <=100-block windows; one bad window (rate limit, transient RPC
+    // error) is skipped rather than failing the whole call.
+    const windows = buildWindows(fromBlock, head);
+    let skippedWindows = 0;
+    const perWindow = await mapWithConcurrency(windows, WINDOW_CONCURRENCY, async (w) => {
+      try {
+        const [outgoing, incoming] = await Promise.all([
+          client.getLogs({
+            event: transferEvent,
+            args: { from: target },
+            fromBlock: w.fromBlock,
+            toBlock: w.toBlock,
+          }),
+          client.getLogs({
+            event: transferEvent,
+            args: { to: target },
+            fromBlock: w.fromBlock,
+            toBlock: w.toBlock,
+          }),
+        ]);
+        return [...outgoing, ...incoming];
+      } catch (err) {
+        skippedWindows += 1;
+        ctx.server.logger.warn("get_transaction_history: skipped block window", {
+          from: w.fromBlock.toString(),
+          to: w.toBlock.toString(),
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return [];
       }
-    }
+    });
 
-    const events = collected
+    const events = perWindow
+      .flat()
       .map((log) => ({
         tx_hash: log.transactionHash,
         block_number: log.blockNumber?.toString(),
@@ -125,13 +141,12 @@ export const getTransactionHistoryTool: ToolDefinition<typeof shape> = {
       }))
       .sort((a, b) => Number(BigInt(b.block_number ?? "0") - BigInt(a.block_number ?? "0")));
 
-    const partialNote =
-      failedWindows > 0
-        ? ` (${failedWindows}/${windows.length} block windows failed to scan — results may be incomplete; use the explorer for the authoritative view)`
-        : "";
+    const skippedNote = skippedWindows
+      ? ` (${skippedWindows} of ${windows.length} block windows could not be scanned and were skipped)`
+      : "";
     const summary = events.length
-      ? `Found ${events.length} ERC-20 transfers involving ${target} in the last ${args.lookback_blocks} blocks on Monad ${ctx.network}${partialNote}.`
-      : `No ERC-20 transfers found for ${target} in the last ${args.lookback_blocks} blocks on Monad ${ctx.network}${partialNote}.`;
+      ? `Found ${events.length} ERC-20 transfers involving ${target} in the last ${args.lookback_blocks} blocks on Monad ${ctx.network}.${skippedNote}`
+      : `No ERC-20 transfers found for ${target} in the last ${args.lookback_blocks} blocks on Monad ${ctx.network}.${skippedNote}`;
 
     return {
       text: `${summary}\nFor a full history (incl. native + contract calls): ${addressExplorerUrl(ctx.network, target)}`,
@@ -140,10 +155,9 @@ export const getTransactionHistoryTool: ToolDefinition<typeof shape> = {
         network: ctx.network,
         from_block: fromBlock.toString(),
         to_block: head.toString(),
-        windows_scanned: windows.length,
-        windows_failed: failedWindows,
         explorer_url: addressExplorerUrl(ctx.network, target),
         events,
+        ...(skippedWindows ? { skipped_block_windows: skippedWindows } : {}),
       },
     };
   },

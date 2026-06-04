@@ -28,7 +28,7 @@ describe("monad chain config", () => {
     expect(isMonadChainId(143)).toBe(true);
     expect(isMonadChainId(10143)).toBe(true);
     expect(isMonadChainId(1)).toBe(false);
-    expect(isMonadChainId(8453)).toBe(false);
+    expect(isMonadChainId(10)).toBe(false);
   });
 
   test("networkForChainId reverses the mapping", () => {
@@ -40,5 +40,18 @@ describe("monad chain config", () => {
   test("native currency is MON with 18 decimals", () => {
     expect(monadMainnet.nativeCurrency).toEqual({ name: "Monad", symbol: "MON", decimals: 18 });
     expect(monadTestnet.nativeCurrency).toEqual({ name: "Monad", symbol: "MON", decimals: 18 });
+  });
+
+  // Regression: ISSUE-001 — the mainnet block explorer pointed at
+  // https://explorer.monad.xyz, a domain that does not resolve (NXDOMAIN),
+  // so every mainnet explorer_url across the read/write tools was a dead link.
+  // The live explorer is the monadexplorer.com family (testnet uses the
+  // testnet. subdomain). Found by /qa on 2026-06-03.
+  test("block explorers point at the live monadexplorer.com family, not the dead domain", () => {
+    expect(monadMainnet.blockExplorers?.default.url).toBe("https://monadexplorer.com");
+    expect(monadTestnet.blockExplorers?.default.url).toBe("https://testnet.monadexplorer.com");
+    for (const chain of [monadMainnet, monadTestnet]) {
+      expect(chain.blockExplorers?.default.url).not.toContain("explorer.monad.xyz");
+    }
   });
 });

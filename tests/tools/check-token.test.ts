@@ -30,7 +30,7 @@ describe("check_token tool", () => {
     });
     const res = await runTool(
       checkTokenTool,
-      { token: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea" },
+      { token: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603" },
       ctx,
     );
     const s = res.structuredContent as {

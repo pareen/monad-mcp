@@ -65,14 +65,20 @@ export class PrivyAuthBridge {
   /**
    * Verifies a Privy-issued access token. Throws AuthRequiredError if invalid.
    */
-  async verifyAccessToken(token: string): Promise<{ userId: string; sessionId: string }> {
+  async verifyAccessToken(
+    token: string,
+  ): Promise<{ userId: string; sessionId: string; expiresAt: number }> {
     try {
       const payload = await verifyAccessToken({
         access_token: token,
         app_id: this.appId,
         verification_key: this.verificationKey,
       });
-      return { userId: payload.user_id, sessionId: payload.session_id };
+      return {
+        userId: payload.user_id,
+        sessionId: payload.session_id,
+        expiresAt: payload.expiration,
+      };
     } catch (err) {
       throw new AuthRequiredError(
         err instanceof Error ? `Invalid Privy token: ${err.message}` : "Invalid Privy token",

@@ -63,7 +63,7 @@ const quoteShape = {
     .number()
     .int()
     .positive()
-    .describe("Source chain ID (e.g. 1=Ethereum, 8453=Base, 42161=Arbitrum)."),
+    .describe("Source chain ID (e.g. 1=Ethereum, 10=Optimism, 42161=Arbitrum)."),
   from_token: z.string().describe("Source token: 0x address, or '0x0000…0000' for native."),
   to_token: z.string().describe("Destination token on Monad (0x address) or 'MON' for native."),
   amount: amountSchema.describe("Amount in source token, decimal e.g. '10'."),

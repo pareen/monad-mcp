@@ -5,7 +5,8 @@ import type { NetworkName } from "../chains/monad.js";
  * change address. For everything else, use the DexScreener-backed resolver in
  * src/tokens/resolver.ts.
  *
- * Addresses verified against monad-crypto/protocols metadata + project docs.
+ * Addresses verified on-chain against Monad mainnet (chainId 143) — symbol +
+ * decimals read from the live contract — during a /qa pass on 2026-06-03.
  * `mon` is the native asset (no contract); listed for symmetry.
  */
 export interface TokenInfo {
@@ -22,23 +23,25 @@ const MAINNET: Record<string, TokenInfo> = {
   WMON: {
     symbol: "WMON",
     name: "Wrapped Monad",
-    address: "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701",
+    address: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
     decimals: 18,
     aliases: ["wrapped mon", "wmon"],
   },
   USDC: {
     symbol: "USDC",
     name: "USD Coin",
-    address: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+    address: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
     decimals: 6,
     aliases: ["usd coin"],
   },
-  USDT: {
-    symbol: "USDT",
-    name: "Tether USD",
-    address: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D",
+  // Monad has no plain "USDT" — the canonical Tether is USDT0 (LayerZero OFT).
+  // Aliases keep "usdt"/"tether" queries resolving here.
+  USDT0: {
+    symbol: "USDT0",
+    name: "USDT0",
+    address: "0xe7cd86e13AC4309349F30B3435a9d337750fC82D",
     decimals: 6,
-    aliases: ["tether"],
+    aliases: ["usdt", "tether", "usdt0"],
   },
   AUSD: {
     symbol: "AUSD",
@@ -50,7 +53,7 @@ const MAINNET: Record<string, TokenInfo> = {
   WETH: {
     symbol: "WETH",
     name: "Wrapped Ether",
-    address: "0xB5a30b0FDc5EA94A52fDc42e3E9760Cb8449Fb37",
+    address: "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242",
     decimals: 18,
     aliases: ["wrapped ether", "weth"],
   },

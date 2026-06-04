@@ -92,12 +92,13 @@ src/
 ```
 1. Agent calls `transfer({to, amount})` over MCP
         ↓
-2. Streamable HTTP transport authenticates via Bearer token
+2. optionalBearerAuth middleware: a write needs a Bearer token (a read doesn't)
    → privyTokenVerifier() validates → AuthInfo.extra has {userId, walletAddress, walletId}
+   → req.auth is attached; an absent token passes through anonymously (reads only)
         ↓
 3. McpServer dispatches to registerTool wrapper → runTool(def, args, ctx, authInfo)
    - input validated with zod
-   - "write" tools gated on walletAddress presence
+   - "write" tools gated on auth + walletAddress presence (AuthRequiredError otherwise)
         ↓
 4. Tool handler builds {to, value, data} via viem encodeFunctionData
    - looks up token decimals/symbol for human-readable summary
@@ -183,7 +184,19 @@ MCP client          monad-mcp server          Privy
    │                       │
 ```
 
-The bearer token comes from the MCP client's OAuth flow against Privy. The `.well-known/oauth-protected-resource` endpoint advertises Privy as the authorization server.
+The bearer token comes from the MCP client's OAuth flow against this server's own
+OAuth 2.1 bridge (`/oauth/register`, `/authorize`, `/token`), which fronts Privy
+login and passes through the user's Privy access token. The
+`.well-known/oauth-protected-resource` endpoint advertises this server's base URL
+as the authorization server.
+
+Auth is enforced by `optionalBearerAuth` (`src/auth/optional-bearer.ts`) when
+Privy is configured: a request with no `Authorization` header passes through
+anonymously and can run **read** tools; **write** tools self-gate in `runTool` and
+return `AuthRequiredError` until a token is present. A malformed or expired token
+gets a `401` with a `WWW-Authenticate` challenge. Set `MONAD_MCP_REQUIRE_AUTH=true`
+to require a token for every call (using the SDK's strict `requireBearerAuth`
+instead). With no Privy creds, `/mcp` is fully open.
 
 ## Plugin contract
 
@@ -197,7 +210,7 @@ interface SkillPlugin {
 }
 ```
 
-Plugins are loaded statically in `src/plugins/index.ts` for v1. The interface is designed so they can be loaded out-of-process later (a la Base MCP's markdown specs).
+Plugins are loaded statically in `src/plugins/index.ts` for v1. The interface is designed so they can be loaded out-of-process later (e.g. as external markdown specs).
 
 ## Tradeoffs
 
