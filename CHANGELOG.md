@@ -5,6 +5,13 @@ All notable changes to this project are documented here. Format loosely follows
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-06-04
+
+### Added
+- `mcpName` field in `package.json` (`io.github.pareen/monad-mcp`) so the
+  published npm package links back to the MCP registry entry — required for
+  `mcp-publisher` to validate and list the server.
+
 ## [0.2.0] — 2026-06-04
 
 ### Fixed
