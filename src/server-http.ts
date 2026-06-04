@@ -7,6 +7,7 @@ import { approvalRouter } from "./approval/routes.js";
 import { oauthRouter } from "./auth/oauth-routes.js";
 import { AuthCodeStore } from "./auth/oauth-store.js";
 import { authorizationServerMetadata, protectedResourceMetadata } from "./auth/oauth.js";
+import { optionalBearerAuth } from "./auth/optional-bearer.js";
 import { privyTokenVerifier } from "./auth/verifier.js";
 import { buildMcpServer, buildServerContext } from "./server.js";
 
@@ -101,18 +102,29 @@ async function main() {
   };
 
   if (auth) {
-    app.post(
-      "/mcp",
-      requireBearerAuth({
-        verifier: privyTokenVerifier(auth, logger),
-        resourceMetadataUrl,
-      }),
-      handleMcpPost,
-    );
+    const verifier = privyTokenVerifier(auth, logger);
+    if (config.requireAuth) {
+      // Strict mode: every call needs a valid bearer token (reads included).
+      app.post("/mcp", requireBearerAuth({ verifier, resourceMetadataUrl }), handleMcpPost);
+      logger.info("MCP /mcp requires a bearer token for all calls (MONAD_MCP_REQUIRE_AUTH).");
+    } else {
+      // Default: public reads, gated writes. Anonymous requests run read tools;
+      // write tools self-gate in runTool and a token unlocks them.
+      app.post(
+        "/mcp",
+        optionalBearerAuth({ verifier, resourceMetadataUrl, logger }),
+        handleMcpPost,
+      );
+      logger.info(
+        "MCP /mcp reads are public; write tools require a Privy bearer token. " +
+          "Set MONAD_MCP_REQUIRE_AUTH=true to gate reads too.",
+      );
+    }
   } else {
     logger.warn(
-      "MCP /mcp endpoint is open (no Privy auth configured). " +
-        "Set PRIVY_APP_ID and PRIVY_APP_SECRET to require Bearer tokens.",
+      "MCP /mcp endpoint is fully open (no Privy auth configured). " +
+        "Write tools run without a wallet check. " +
+        "Set PRIVY_APP_ID and PRIVY_APP_SECRET to require a bearer token for writes.",
     );
     app.post("/mcp", handleMcpPost);
   }

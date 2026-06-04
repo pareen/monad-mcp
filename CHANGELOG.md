@@ -5,6 +5,15 @@ All notable changes to this project are documented here. Format loosely follows
 
 ## [Unreleased]
 
+### Fixed
+
+**Auth**
+- Hosted `/mcp` no longer `401`s read-only calls. When Privy is configured the
+  endpoint previously gated *every* request (including `initialize`/`tools/list`)
+  behind a bearer token, silently breaking the advertised zero-auth read flow for
+  clients that can't do interactive OAuth. Reads are now public again; only write
+  tools require a token.
+
 ### Added
 
 **Nad Name Service (.nad) resolution**
@@ -23,6 +32,14 @@ All notable changes to this project are documented here. Format loosely follows
   target network (resolved addresses are chain-agnostic), so `.nad` sends work on
   the default testnet config with no `network` override — the tx still executes on
   the targeted network.
+
+**Auth**
+- `optionalBearerAuth` middleware (`src/auth/optional-bearer.ts`): verifies a
+  bearer token when present (unlocking write tools), passes anonymous requests
+  through to the per-tool gate, and returns a `401` + `WWW-Authenticate` challenge
+  only for a malformed/expired token.
+- `MONAD_MCP_REQUIRE_AUTH=true` env flag to restore strict mode (a token required
+  for every call, reads included).
 
 ### Changed
 

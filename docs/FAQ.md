@@ -235,7 +235,7 @@ The memory store is convenient for local development, but it is not suitable for
 
 ### Does the hosted endpoint support writes?
 
-No. The hosted endpoint is for read-only use. Writes require a self-hosted signer and your own Privy credentials.
+Read tools are public on the hosted endpoint — no login needed. Write tools are gated: they return `auth_required` until you sign in via Privy. The hosted endpoint has the Privy OAuth sign-in path wired in, but the in-browser login is still being verified end-to-end, so the fully tested route for writes is a self-hosted signer with your own Privy credentials.
 
 ### What should I verify before deploying?
 
