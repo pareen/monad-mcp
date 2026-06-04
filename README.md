@@ -29,6 +29,8 @@ returning `auth_required` until you authenticate. The hosted sign-in path is wir
 but still being verified end-to-end, so the tested route for transactions is your
 own Privy-signed instance — see [docs/connect-claude.md](docs/connect-claude.md#sending-transactions-writes), [docs/FAQ.md](docs/FAQ.md) for common security/setup questions, and [docs/DEPLOY.md](docs/DEPLOY.md).
 
+**🧭 Monad ≠ Ethereum:** the server ships agent-facing guidance on Monad's quirks (128 KB contracts, `gas_limit` billing, speculative `latest`, `eth_getLogs` caps, FastLane/MEV) as `monad://guide/*` MCP resources — see [docs/building-on-monad.md](docs/building-on-monad.md).
+
 ## What's in the box
 
 **Core tools** (work on any address; auth required only where noted):

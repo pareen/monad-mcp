@@ -5,6 +5,7 @@ import type { ServerContext } from "./context.js";
 import { createLogger } from "./logger.js";
 import { NoopNotifier, WebhookNotifier } from "./notifications/webhook.js";
 import { registerPlugins } from "./plugins/index.js";
+import { registerGuideResources } from "./resources/guide.js";
 import { NotifyingRequestStore } from "./store/notifying.js";
 import { selectStores } from "./store/select.js";
 import { registerCoreTools } from "./tools/index.js";
@@ -69,12 +70,19 @@ export function buildMcpServer(context: ServerContext): McpServer {
         "MCP server for the Monad blockchain. Read tools (balances, history) work without auth. " +
         "Write tools (transfer, swap, stake) require the user to be signed in via Privy and return an " +
         "approval URL the user must open to confirm the transaction. After approval, poll the request " +
-        "with `poll_request` to retrieve the resulting tx hash.",
+        "with `poll_request` to retrieve the resulting tx hash.\n\n" +
+        "Monad differs from Ethereum in ways that matter for agents: contracts can be up to 128 KB " +
+        "(don't split them to fit Ethereum's 24 KB limit); you pay on gas_limit, not gas_used, so set " +
+        "tight gas limits; `latest` reads are speculative and can change, so use the `finalized` tag " +
+        "for irreversible decisions; and `eth_getLogs` is capped at ~100 blocks on the public RPC. " +
+        "Read the `monad://guide/*` resources before deploying contracts, streaming events, or relying " +
+        "on historical data.",
     },
   );
 
   registerCoreTools(mcp, context);
   registerPlugins(mcp, context);
+  registerGuideResources(mcp);
 
   return mcp;
 }
