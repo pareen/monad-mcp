@@ -20,6 +20,7 @@
       <a href="#connect">Connect</a>
       <a href="#demo" class="hide-sm">Live demo</a>
       <a href="#tools" class="hide-sm">Tools</a>
+      <a href="#usecases" class="hide-sm">Use cases</a>
       <a href="#faq" class="hide-sm">FAQ</a>
       <a href="https://github.com/pareen/monad-mcp">GitHub ↗</a>
     </nav>
@@ -212,18 +213,152 @@
   </div>
 </section>
 
+<!-- ===================== USE CASES ===================== -->
+<section id="usecases">
+  <div class="wrap">
+    <p class="eyebrow">What to say</p>
+    <h2>Typical prompts to get you started</h2>
+    <p class="lead">Once the connector is on, just talk to your agent in plain English. Here are prompts that map onto real tools — click any one to copy it, paste it into Claude or ChatGPT, and go.</p>
+
+    <div class="usecases">
+      <div class="uc">
+        <div class="uc-head"><span class="ic">🔍</span><h3>Explore &amp; monitor</h3><span class="pill r">read · no login</span></div>
+        <div class="prompt-list">
+          <button class="prompt">What's the MON balance of 0x7E274bCA90eEfa81761080e074AFb1D354a0c552?<span class="ico">⧉</span></button>
+          <button class="prompt">Show me the full portfolio for vitalik.mon<span class="ico">⧉</span></button>
+          <button class="prompt">What's the current price of WMON and USDC?<span class="ico">⧉</span></button>
+          <button class="prompt">List the last 10 transactions for my wallet<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">🛡️</span><h3>Check before you act</h3><span class="pill r">read · no login</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Is token 0xf817257fed379853cDe0fa4F97AB987181B1E5Ea safe to trade? Check liquidity and pair age<span class="ico">⧉</span></button>
+          <button class="prompt">Simulate sending 5 MON to alice.mon — will it succeed?<span class="ico">⧉</span></button>
+          <button class="prompt">Read the totalSupply on this ERC-20 contract<span class="ico">⧉</span></button>
+          <button class="prompt">Get me a bridge quote for 20 USDC from Monad to Base<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">🔁</span><h3>Trade &amp; swap</h3><span class="pill w">write · approval</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Swap 10 MON for USDC on Uniswap — show me the quote first<span class="ico">⧉</span></button>
+          <button class="prompt">What's the best bid and ask for MON/USDC on Kuru?<span class="ico">⧉</span></button>
+          <button class="prompt">Place a limit order to buy 100 USDC worth of MON 5% below market<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">🌱</span><h3>Stake &amp; earn</h3><span class="pill w">write · approval</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Stake 5 MON with FastLane for shMON<span class="ico">⧉</span></button>
+          <button class="prompt">Stake 5 MON into Kintsu and show my sMON position<span class="ico">⧉</span></button>
+          <button class="prompt">Supply 50 USDC to Morpho and tell me the borrow APY<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">💸</span><h3>Send &amp; pay</h3><span class="pill w">write · approval</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Send 0.1 MON to alice.mon<span class="ico">⧉</span></button>
+          <button class="prompt">Bridge 20 USDC from Monad to Base<span class="ico">⧉</span></button>
+          <button class="prompt">Pay for this x402 service and report the tx hash<span class="ico">⧉</span></button>
+        </div>
+      </div>
+
+      <div class="uc">
+        <div class="uc-head"><span class="ic">⚡</span><h3>Hands-free autonomy</h3><span class="pill w">write · session key</span></div>
+        <div class="prompt-list">
+          <button class="prompt">Grant a session key capped at 5 MON that expires in 1 hour, only for FastLane staking<span class="ico">⧉</span></button>
+          <button class="prompt">List my active session keys<span class="ico">⧉</span></button>
+          <button class="prompt">Revoke the session key I created earlier<span class="ico">⧉</span></button>
+        </div>
+      </div>
+    </div>
+
+    <p class="uc-tip" style="text-align:center">Read prompts work on the hosted connector with no login. Write prompts (swap, stake, send, grant) return an approval link you confirm — or run inside a session key you've already approved.</p>
+  </div>
+</section>
+
 <!-- ===================== FAQ ===================== -->
 <section id="faq">
   <div class="wrap">
     <p class="eyebrow">Common questions</p>
     <h2>What people ask first</h2>
-    <div class="grid">
-      <div class="card"><h3>Can the agent steal my funds?</h3><p>No. The agent does not get a private key. It proposes unsigned transactions; you approve them in the browser unless the action fits inside a session-key grant you already approved.</p></div>
-      <div class="card"><h3>Can I try it without setup?</h3><p>Yes. The hosted endpoint exposes read tools for balances, portfolio data, token lookup, transaction history, receipts, and contract reads.</p></div>
-      <div class="card"><h3>Do I need to host anything?</h3><p>No. The public setup uses the hosted Monad connector. Add the URL in Claude or ChatGPT and start asking questions.</p></div>
-      <div class="card"><h3>How do approvals work?</h3><p>The server stores a transaction request and returns an approval URL. You review the summary, approve or reject, and the agent polls for the final status.</p></div>
-      <div class="card"><h3>What are session keys?</h3><p>Scoped grants for limited autonomy. You can cap spend, set an expiry, restrict target addresses, and restrict function selectors.</p></div>
-      <div class="card"><h3>Should I use mainnet funds?</h3><p>Start on testnet. Before mainnet use, verify Privy setup, protocol addresses, token addresses, approval URLs, and session-key limits.</p></div>
+    <div class="faq-list">
+
+      <details class="faq-item">
+        <summary>Can the agent steal my funds? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>No. The agent never receives a private key and cannot sign directly. For normal write tools it builds an <em>unsigned</em> transaction and returns an approval URL — you review and confirm it in the browser. The only exception is an action that fits inside a session-key grant you already approved, and even then it stays within that grant's configured limits.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I try it without installing anything? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Yes. Add the hosted connector URL <code class="inl">https://monad-mcp.fly.dev/mcp</code> in Claude or ChatGPT and start asking questions. The hosted endpoint exposes read tools — balances, portfolio data, token lookup, prices, transaction history, receipts, and contract reads — with no login.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Do I need to host anything? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Not for reads. The public setup uses the hosted Monad connector — paste the URL and go. Self-hosting with your own Privy configuration is what unlocks the fully tested write path: transfers, swaps, staking, lending, contract writes, x402 payments, bridge execution, and session-key grants.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>How do approval URLs work? <span class="chev">▼</span></summary>
+        <div class="faq-body">
+          <p>Write tools follow a stored-request pattern:</p>
+          <ul>
+            <li>The agent calls a write tool.</li>
+            <li>The server builds an unsigned payload plus a human-readable summary and stores it under a UUID.</li>
+            <li>The tool returns an approval URL.</li>
+            <li>You open it, review exactly what moves, and approve or reject.</li>
+            <li>The agent calls <code class="inl">poll_request</code> to get the final status and transaction hash.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>What are session keys? <span class="chev">▼</span></summary>
+        <div class="faq-body">
+          <p>Scoped grants that let the agent act without a per-transaction approval URL. A grant can limit total MON spend, expiration time, allowed target addresses, and allowed function selectors.</p>
+          <p>If a write action is covered by an active grant, the tool submits immediately. If not, it falls back to the normal approval URL flow. Each grant is also mirrored as a Privy wallet policy, so Privy itself refuses transactions outside the envelope.</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Can I revoke a session key? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Yes. Use <code class="inl">list_session_keys</code> to inspect active and recent grants, then <code class="inl">revoke_session_key</code> to cancel one. Prefer short-lived keys with small caps when trying autonomous flows.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Does the MCP server hold my wallet private key? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>No. Wallet custody is handled by Privy, which holds the key in a TEE. The server may hold a Privy <em>authorization</em> key used for server-side wallet authorization, but that is not your wallet's private key — it can never move funds on its own.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Which Monad networks and clients are supported? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Monad mainnet (<code class="inl">143</code>) and testnet (<code class="inl">10143</code>). Some plugins are mainnet-only and are skipped on testnet. The server speaks MCP over stdio and Streamable HTTP, so it works with Claude (web &amp; desktop), Claude Code, ChatGPT, Cursor, and other Streamable-HTTP MCP clients.</p></div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Which DeFi protocols ship with it? <span class="chev">▼</span></summary>
+        <div class="faq-body">
+          <ul>
+            <li><strong>Uniswap v3</strong> — quotes, swaps, ERC-20 approvals.</li>
+            <li><strong>Kintsu</strong> — MON → sMON liquid staking.</li>
+            <li><strong>FastLane</strong> — MON → shMON liquid staking.</li>
+            <li><strong>Morpho</strong> — lending and borrowing.</li>
+            <li><strong>Kuru</strong> — onchain CLOB markets.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>Should I use mainnet funds? <span class="chev">▼</span></summary>
+        <div class="faq-body"><p>Start on testnet. Before using mainnet funds, verify Privy configuration, protocol addresses, token addresses, approval URLs, and session-key limits — then use small amounts until you've tested the full flow end to end.</p></div>
+      </details>
+
     </div>
     <p class="note" style="text-align:center;margin-top:18px">Full FAQ: <a href="https://github.com/pareen/monad-mcp/blob/main/docs/FAQ.md">docs/FAQ.md</a></p>
   </div>
@@ -268,6 +403,21 @@ document.querySelectorAll(".copy").forEach((btn) => {
     const old = btn.textContent;
     btn.textContent = "Copied ✓"; btn.classList.add("copied");
     setTimeout(() => { btn.textContent = old; btn.classList.remove("copied"); }, 1400);
+  });
+});
+
+// ---------- click-to-copy prompts ----------
+document.querySelectorAll(".prompt").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const text = btn.querySelector(".ico")
+      ? btn.textContent.replace(/⧉\s*$/, "").trim()
+      : btn.textContent.trim();
+    try { await navigator.clipboard.writeText(text); } catch {}
+    const ico = btn.querySelector(".ico");
+    const old = ico ? ico.textContent : "";
+    btn.classList.add("copied");
+    if (ico) ico.textContent = "✓";
+    setTimeout(() => { btn.classList.remove("copied"); if (ico) ico.textContent = old; }, 1400);
   });
 });
 

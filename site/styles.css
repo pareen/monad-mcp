@@ -287,3 +287,57 @@ footer.site p { margin: 6px 0; }
 .doc li { margin: 6px 0; }
 .doc .sec { padding: 10px 0 26px; border-bottom: 1px solid var(--border); margin-bottom: 26px; }
 .doc .sec:last-child { border-bottom: none; }
+
+/* ---------- use cases / prompts ---------- */
+.usecases { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 16px; }
+.uc { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+.uc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.uc-head .ic { font-size: 20px; line-height: 1; }
+.uc-head h3 { margin: 0; font-size: 16px; flex: 1; }
+.uc-head .pill {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  border-radius: 999px; padding: 3px 8px;
+}
+.uc-head .pill.r { color: var(--ok); background: rgba(58, 207, 134, 0.1); border: 1px solid rgba(58,207,134,0.35); }
+.uc-head .pill.w { color: var(--accent2); background: var(--accent-soft); border: 1px solid var(--border2); }
+.prompt-list { display: grid; gap: 8px; }
+.prompt {
+  position: relative; text-align: left; width: 100%; cursor: pointer;
+  appearance: none; font-family: var(--sans);
+  background: var(--panel2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 11px 40px 11px 13px; font-size: 13.5px; line-height: 1.5; color: var(--muted);
+  transition: border-color .12s ease, color .12s ease;
+}
+.prompt:hover { border-color: var(--accent); color: var(--fg); }
+.prompt:before { content: "\201C"; color: var(--faint); margin-right: 2px; }
+.prompt:after { content: "\201D"; color: var(--faint); margin-left: 2px; }
+.prompt .ico {
+  position: absolute; top: 50%; right: 11px; transform: translateY(-50%);
+  font-size: 11px; color: var(--faint);
+}
+.prompt:hover .ico { color: var(--accent2); }
+.prompt.copied { border-color: var(--ok); color: var(--fg); }
+.prompt.copied .ico { color: var(--ok); }
+.uc-tip { font-size: 12px; color: var(--faint); margin: 12px 0 0; }
+
+/* ---------- FAQ accordion ---------- */
+.faq-list { max-width: 760px; margin: 0 auto; display: grid; gap: 10px; }
+.faq-item { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; transition: border-color .15s ease; }
+.faq-item[open] { border-color: var(--border2); }
+.faq-item summary {
+  list-style: none; cursor: pointer; padding: 17px 20px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  font-weight: 600; font-size: 15.5px; color: var(--fg);
+}
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary:hover { color: var(--accent2); }
+.faq-item summary .chev {
+  flex: none; color: var(--faint); font-size: 13px; line-height: 1;
+  transition: transform .2s ease, color .2s ease;
+}
+.faq-item[open] summary .chev { transform: rotate(180deg); color: var(--accent2); }
+.faq-item .faq-body { padding: 0 20px 18px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.faq-item .faq-body p { margin: 0 0 10px; }
+.faq-item .faq-body p:last-child { margin-bottom: 0; }
+.faq-item .faq-body ul { margin: 8px 0 0; padding-left: 18px; }
+.faq-item .faq-body li { margin: 4px 0; }
