@@ -23,8 +23,11 @@ claude mcp add --transport http monad https://monad-mcp.fly.dev/mcp   # hosted
 claude mcp add monad -- npx -y monad-mcp                              # or run it locally
 ```
 
-The hosted endpoint is **read-only** by design (safe to share). Sending transactions
-needs your own Privy-signed instance for now — see [docs/connect-claude.md](docs/connect-claude.md#sending-transactions-writes), [docs/FAQ.md](docs/FAQ.md) for common security/setup questions, and [docs/DEPLOY.md](docs/DEPLOY.md).
+The hosted endpoint runs in **split** mode: **read tools are public** (paste the URL,
+no login — safe to share) and **write tools are gated** behind a Privy sign-in,
+returning `auth_required` until you authenticate. The hosted sign-in path is wired
+but still being verified end-to-end, so the tested route for transactions is your
+own Privy-signed instance — see [docs/connect-claude.md](docs/connect-claude.md#sending-transactions-writes), [docs/FAQ.md](docs/FAQ.md) for common security/setup questions, and [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## What's in the box
 
@@ -159,7 +162,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`. The `-
 
 You'll also need the HTTP server running (`npm run start:http`) for the approval flow — the stdio MCP returns approval URLs that point at the HTTP server. See [docs/claude-desktop.md](docs/claude-desktop.md) for the full dogfood walkthrough (bootstrap, funding, first transfer).
 
-> **Read-only, no self-hosting:** to try just the read tools (balances, portfolio, history) without building anything, point Claude Desktop at the hosted endpoint via the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) shim — `"args": ["-y", "mcp-remote", "https://monad-mcp.fly.dev/mcp"]`. Writes (transfers/swaps) need a self-hosted signer and aren't available there.
+> **Public reads, no self-hosting:** to use the read tools (balances, portfolio, history) without building anything, point Claude Desktop at the hosted endpoint via the [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) shim — `"args": ["-y", "mcp-remote", "https://monad-mcp.fly.dev/mcp"]`. Writes (transfers/swaps) are gated behind a Privy sign-in; the verified path for them is a self-hosted signer.
 
 ### 5. Try a prompt
 

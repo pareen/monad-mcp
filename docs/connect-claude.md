@@ -110,14 +110,17 @@ Remove either with `claude mcp remove monad`.
 
 ## Sending transactions (writes)
 
-The public endpoint above is **read-only on purpose** — it has no wallet keys
-attached, so it's safe to share. Ask it to send MON or swap tokens and it will
-politely refuse with a "requires a connected wallet" message.
+Reads and writes are split. **Read tools are public** — paste the URL and ask for
+balances, prices, or history with no login at all. **Write tools (send, swap,
+stake) are gated**: ask the connector to move money and it politely refuses with a
+"requires a connected wallet — sign in via Privy and retry" message until you
+authenticate. Pasting the URL can never spend your funds.
 
-A one-tap "sign in and send" experience (you log in, a wallet is created for you,
-and you approve each transaction in your browser) is in progress. Until it lands,
-write tools require running your **own** instance with [Privy](https://dashboard.privy.io)
-signing credentials:
+A one-tap "sign in and send" experience (you log in with [Privy](https://dashboard.privy.io),
+a wallet is created for you, and you approve each transaction in your browser) is
+wired into the hosted endpoint via OAuth, but the in-browser login step is still
+being verified end-to-end. The fully tested path for writes today is running your
+**own** instance with Privy signing credentials:
 
 - Local setup for Claude Desktop / Claude Code: [claude-desktop.md](./claude-desktop.md)
 - Hosting your own endpoint: [DEPLOY.md](./DEPLOY.md)

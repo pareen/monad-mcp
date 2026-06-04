@@ -207,7 +207,22 @@
   <h3><span class="tag tag-decision">decision</span>Signing secret reuses <code>MONAD_MCP_APPROVAL_SECRET</code></h3>
   <p>Client-id signing uses the existing approval secret. If unset, the server logs a warning and generates an ephemeral one at boot — the flow still works, but registered clients invalidate on restart, so a stable secret is recommended for any real deploy.</p>
 
-  <h2>9. What ships in v1</h2>
+  <h2>9. Read-public / write-gated split (optional bearer auth)</h2>
+  <p>When Privy was configured, the entire <code>POST /mcp</code> endpoint was wrapped in the SDK's <code>requireBearerAuth</code>, so <em>every</em> call — including read-only tools and even <code>initialize</code>/<code>tools/list</code> — got a <code>401</code> without a token. On the live hosted endpoint (which has Privy secrets) this silently broke the advertised "paste the URL, read with zero auth" flow: a client that can't do interactive OAuth (headless loaders, some connectors) enumerated zero tools and reported the server as "unreachable." The fix splits read from write at the transport edge.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Endpoint auth is now <em>optional</em>; writes self-gate per-tool</h3>
+  <p>New middleware <code>optionalBearerAuth</code> (<code>src/auth/optional-bearer.ts</code>) replaces <code>requireBearerAuth</code> on <code>/mcp</code> by default. No <code>Authorization</code> header &rarr; the request passes through anonymously and runs read tools; the existing per-tool gate in <code>runTool</code> (<code>def.kind === "write" &amp;&amp; !auth</code> &rarr; <code>AuthRequiredError</code>) already blocks writes, so no token is ever needed to read. A valid <code>Bearer</code> token is verified (same Privy verifier) and attached as <code>req.auth</code>, which the Streamable-HTTP transport forwards as <code>extra.authInfo</code> to unlock writes. The write-gating logic didn't change — only <em>where</em> the read/write boundary is enforced moved from the endpoint to the tool.</p>
+
+  <h3><span class="tag tag-decision">decision</span>A malformed/expired token is a hard <code>401</code>, not a silent downgrade</h3>
+  <p>If a client bothers to send a bearer, it meant to authenticate, so a bad or expired one returns <code>401</code> with a spec-compliant <code>WWW-Authenticate</code> challenge (pointing at the resource-metadata URL) rather than quietly falling back to anonymous read-only. Only a genuinely <em>absent</em> header is treated as anonymous. This mirrors the SDK's <code>requireBearerAuth</code> behavior for the present-but-invalid case, including the same expiry checks.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Writes fail in-band, so anonymous clients aren't auto-prompted to log in</h3>
+  <p>Because anonymous reads never receive a <code>401</code>, a spec-compliant client won't <em>automatically</em> trigger its OAuth flow — a write instead returns an in-band <code>auth_required</code> tool result telling the user to sign in. That's the right call for the primary use case (frictionless reads) and the OAuth discovery metadata is still served, so a client that wants write access can authenticate proactively. The alternative — <code>401</code>-ing writes at the transport to force the OAuth handshake — would require routing per-tool kind before the JSON-RPC body is dispatched, which the stateless transport doesn't expose cleanly.</p>
+
+  <h3><span class="tag tag-decision">decision</span><code>MONAD_MCP_REQUIRE_AUTH</code> escape hatch preserves strict mode</h3>
+  <p>Operators who want the old "token for everything" posture set <code>MONAD_MCP_REQUIRE_AUTH=true</code>, which swaps <code>optionalBearerAuth</code> back for the SDK's strict <code>requireBearerAuth</code>. Parsed with an explicit allow-list (<code>1/true/yes/on</code>) rather than <code>z.coerce.boolean()</code>, which would coerce the string <code>"false"</code> to <code>true</code> (any non-empty string is truthy) — a footgun covered by a regression test.</p>
+
+  <h2>10. What ships in v1</h2>
   <ul>
     <li>TypeScript project: tsconfig, vitest, biome, .env.example, LICENSE</li>
     <li>MCP server: stdio + Streamable HTTP entrypoints, McpServer factory, registerTool/runTool split</li>
