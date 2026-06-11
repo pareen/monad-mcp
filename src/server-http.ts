@@ -12,7 +12,7 @@ import { authorizationServerMetadata, protectedResourceMetadata } from "./auth/o
 import { optionalBearerAuth } from "./auth/optional-bearer.js";
 import { privyTokenVerifier } from "./auth/verifier.js";
 import type { ServerContext } from "./context.js";
-import { buildMcpServer, buildServerContext } from "./server.js";
+import { VERSION, buildMcpServer, buildServerContext } from "./server.js";
 
 function escapeHtml(value: string): string {
   return value
@@ -162,7 +162,7 @@ export function createHttpApp(context: ServerContext) {
   app.get("/health", (_req: Request, res: Response) => {
     res.json({
       ok: true,
-      version: "0.1.0",
+      version: VERSION,
       default_network: config.defaultNetwork,
       privy_enabled: Boolean(auth),
     });

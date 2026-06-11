@@ -1,6 +1,7 @@
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, test } from "vitest";
+import pkg from "../package.json" with { type: "json" };
 import { createHttpApp } from "../src/server-http.js";
 import { makeTestContext } from "./helpers/context.js";
 
@@ -35,5 +36,13 @@ describe("HTTP root page", () => {
     expect(html).toContain("HTTP MCP endpoint for Monad tools.");
     expect(html).toContain("/mcp");
     expect(html).toContain("/health");
+  });
+
+  test("reports the package version in health metadata", async () => {
+    const base = await start();
+    const res = await fetch(`${base}/health`);
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ version: pkg.version });
   });
 });
