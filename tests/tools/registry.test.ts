@@ -37,6 +37,17 @@ const authedInfo: AuthInfo = {
   },
 };
 
+const e2eAuthInfo: AuthInfo = {
+  ...authedInfo,
+  token: "e2e",
+  extra: {
+    ...authedInfo.extra!,
+    e2e: true,
+    e2eAllowedRecipient: "0x000000000000000000000000000000000000dead",
+    e2eMaxTransferWei: "1000000000000",
+  },
+};
+
 describe("runTool", () => {
   test("read tool runs without auth and returns text content", async () => {
     const ctx = makeTestContext();
@@ -69,6 +80,13 @@ describe("runTool", () => {
     const res = await runTool(writeTool, { x: "y" }, ctx, authedInfo);
     expect(res.isError).toBeFalsy();
     expect(res.content[0]?.text).toContain("0x1111111111111111111111111111111111111111");
+  });
+
+  test("E2E bearer cannot call arbitrary write tools", async () => {
+    const ctx = makeTestContext();
+    const res = await runTool(writeTool, { x: "y" }, ctx, e2eAuthInfo);
+    expect(res.isError).toBe(true);
+    expect(res.content[0]?.text).toMatch(/only call the transfer tool/);
   });
 
   test("invalid input is rejected before the handler runs", async () => {

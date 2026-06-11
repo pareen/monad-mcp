@@ -1,5 +1,6 @@
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { parseEther } from "viem";
 import type { ZodRawShape, z } from "zod";
 import { readAuthExtra } from "../auth/verifier.js";
 import { type NetworkName, chainFor } from "../chains/monad.js";
@@ -49,6 +50,44 @@ function formatErrorResult(err: unknown): ToolCallbackResult {
   };
 }
 
+function enforceE2EBounds(
+  def: { name: string },
+  parsed: Record<string, unknown>,
+  network: NetworkName,
+  auth: NonNullable<ReturnType<typeof readAuthExtra>>,
+): void {
+  if (!auth.e2e) return;
+  if (network !== "testnet") {
+    throw new AuthRequiredError("E2E bearer is restricted to Monad testnet.");
+  }
+  if (def.name !== "transfer") {
+    throw new AuthRequiredError("E2E bearer can only call the transfer tool.");
+  }
+  if (typeof parsed.token === "string") {
+    throw new AuthRequiredError("E2E bearer can only send native MON, not ERC-20 transfers.");
+  }
+  const allowedRecipient = auth.e2eAllowedRecipient?.toLowerCase();
+  if (
+    !allowedRecipient ||
+    typeof parsed.to !== "string" ||
+    parsed.to.toLowerCase() !== allowedRecipient
+  ) {
+    throw new AuthRequiredError("E2E bearer recipient is not allowed.");
+  }
+  if (typeof parsed.amount !== "string" || !auth.e2eMaxTransferWei) {
+    throw new AuthRequiredError("E2E bearer transfer amount is not allowed.");
+  }
+  let amountWei: bigint;
+  try {
+    amountWei = parseEther(parsed.amount);
+  } catch {
+    throw new AuthRequiredError("E2E bearer transfer amount is invalid.");
+  }
+  if (amountWei > BigInt(auth.e2eMaxTransferWei)) {
+    throw new AuthRequiredError("E2E bearer transfer amount exceeds the configured cap.");
+  }
+}
+
 /**
  * Executes a tool definition with the same gating + error handling as the
  * production MCP wrapper, but as a plain function. Exists so we can unit-test
@@ -78,6 +117,9 @@ export async function runTool<Shape extends ZodRawShape>(
     }
     if (def.kind === "write" && auth && !auth.walletAddress) {
       throw new WalletNotFoundError();
+    }
+    if (def.kind === "write" && auth?.e2e) {
+      enforceE2EBounds(def, parsed as Record<string, unknown>, network as NetworkName, auth);
     }
 
     const ctx: ToolContext = {

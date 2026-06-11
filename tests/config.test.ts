@@ -40,4 +40,18 @@ describe("config", () => {
       );
     }
   });
+
+  test("parses optional E2E bearer configuration", () => {
+    const cfg = loadConfig({
+      MONAD_MCP_E2E_BEARER_TOKEN: "x".repeat(40),
+      MONAD_MCP_E2E_USER_ID: "did:privy:e2e",
+      MONAD_MCP_E2E_ALLOWED_RECIPIENT: "0x000000000000000000000000000000000000dEaD",
+      MONAD_MCP_E2E_MAX_TRANSFER_WEI: "1000000000000",
+    } as NodeJS.ProcessEnv);
+
+    expect(cfg.e2eBearerToken).toBe("x".repeat(40));
+    expect(cfg.e2eUserId).toBe("did:privy:e2e");
+    expect(cfg.e2eAllowedRecipient).toBe("0x000000000000000000000000000000000000dEaD");
+    expect(cfg.e2eMaxTransferWei).toBe("1000000000000");
+  });
 });

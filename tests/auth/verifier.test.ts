@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { PrivyAuthBridge } from "../../src/auth/privy.js";
-import { privyTokenVerifier } from "../../src/auth/verifier.js";
+import { mcpTokenVerifier, privyTokenVerifier } from "../../src/auth/verifier.js";
+import { loadConfig } from "../../src/config.js";
 import { makeResolvedUser } from "../helpers/context.js";
 
 const expiresAt = Math.floor(Date.now() / 1000) + 3600;
@@ -50,5 +51,42 @@ describe("privyTokenVerifier", () => {
     expect(authInfo.expiresAt).toBe(expiresAt);
     expect(authInfo.scopes).toEqual(["monad:read"]);
     expect(authInfo.extra?.walletAddress).toBeNull();
+  });
+
+  test("accepts the configured E2E bearer and resolves the configured wallet", async () => {
+    const verifier = mcpTokenVerifier(
+      bridge({
+        resolveUser: async (userId: string) => makeResolvedUser({ userId }),
+        verifyAccessToken: async () => {
+          throw new Error("should not call Privy JWT verifier for e2e token");
+        },
+      }),
+      loadConfig({
+        MONAD_DEFAULT_NETWORK: "testnet",
+        MONAD_MCP_E2E_BEARER_TOKEN: "x".repeat(40),
+        MONAD_MCP_E2E_USER_ID: "did:privy:e2e",
+      }),
+    );
+
+    const authInfo = await verifier.verifyAccessToken("x".repeat(40));
+
+    expect(authInfo.clientId).toBe("did:privy:e2e");
+    expect(authInfo.extra?.e2e).toBe(true);
+    expect(authInfo.extra?.walletAddress).toBe("0x1111111111111111111111111111111111111111");
+  });
+
+  test("rejects E2E bearer on non-testnet deployments", async () => {
+    const verifier = mcpTokenVerifier(
+      bridge({
+        resolveUser: async () => makeResolvedUser(),
+      }),
+      loadConfig({
+        MONAD_DEFAULT_NETWORK: "mainnet",
+        MONAD_MCP_E2E_BEARER_TOKEN: "x".repeat(40),
+        MONAD_MCP_E2E_USER_ID: "did:privy:e2e",
+      }),
+    );
+
+    await expect(verifier.verifyAccessToken("x".repeat(40))).rejects.toThrow(/testnet/);
   });
 });

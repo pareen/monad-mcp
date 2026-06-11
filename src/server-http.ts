@@ -10,7 +10,7 @@ import { oauthRouter } from "./auth/oauth-routes.js";
 import { AuthCodeStore } from "./auth/oauth-store.js";
 import { authorizationServerMetadata, protectedResourceMetadata } from "./auth/oauth.js";
 import { optionalBearerAuth } from "./auth/optional-bearer.js";
-import { privyTokenVerifier } from "./auth/verifier.js";
+import { mcpTokenVerifier } from "./auth/verifier.js";
 import type { ServerContext } from "./context.js";
 import { VERSION, buildMcpServer, buildServerContext } from "./server.js";
 
@@ -244,7 +244,7 @@ export function createHttpApp(context: ServerContext) {
   };
 
   if (auth) {
-    const verifier = privyTokenVerifier(auth, logger);
+    const verifier = mcpTokenVerifier(auth, config, logger);
     if (config.requireAuth) {
       // Strict mode: every call needs a valid bearer token (reads included).
       app.post("/mcp", requireBearerAuth({ verifier, resourceMetadataUrl }), handleMcpPost);

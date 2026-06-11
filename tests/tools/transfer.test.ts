@@ -16,6 +16,17 @@ const authedInfo: AuthInfo = {
   },
 };
 
+const e2eAuthInfo: AuthInfo = {
+  ...authedInfo,
+  token: "e2e",
+  extra: {
+    ...authedInfo.extra!,
+    e2e: true,
+    e2eAllowedRecipient: "0x000000000000000000000000000000000000dead",
+    e2eMaxTransferWei: "1000000000000",
+  },
+};
+
 describe("transfer tool", () => {
   test("native MON transfer stores a request with the right call payload", async () => {
     const ctx = makeTestContext({
@@ -130,6 +141,40 @@ describe("transfer tool", () => {
       ctx,
     );
     expect(res.isError).toBe(true);
+  });
+
+  test("allows E2E bearer for a capped native testnet transfer to the configured recipient", async () => {
+    const ctx = makeTestContext({
+      publicClient: { estimateGas: vi.fn(async () => 21_000n) as never },
+    });
+    const res = await runTool(
+      transferTool,
+      {
+        to: "0x000000000000000000000000000000000000dEaD",
+        amount: "0.000001",
+      },
+      ctx,
+      e2eAuthInfo,
+    );
+
+    expect(res.isError).toBeFalsy();
+    expect(res.structuredContent?.to).toBe("0x000000000000000000000000000000000000dead");
+  });
+
+  test("rejects E2E bearer transfer above the configured cap", async () => {
+    const ctx = makeTestContext();
+    const res = await runTool(
+      transferTool,
+      {
+        to: "0x000000000000000000000000000000000000dEaD",
+        amount: "0.000002",
+      },
+      ctx,
+      e2eAuthInfo,
+    );
+
+    expect(res.isError).toBe(true);
+    expect(res.content[0]?.text).toMatch(/exceeds the configured cap/);
   });
 
   test("honours ttl_seconds when building the stored request", async () => {

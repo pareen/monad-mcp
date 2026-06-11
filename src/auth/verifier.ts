@@ -1,8 +1,16 @@
+import { timingSafeEqual } from "node:crypto";
 import type { OAuthTokenVerifier } from "@modelcontextprotocol/sdk/server/auth/provider.js";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+import type { Config } from "../config.js";
 import { AuthRequiredError } from "../errors.js";
 import type { Logger } from "../logger.js";
 import type { PrivyAuthBridge, ResolvedUser } from "./privy.js";
+
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
 
 /**
  * Adapter from PrivyAuthBridge to the MCP SDK's OAuthTokenVerifier interface.
@@ -68,12 +76,62 @@ export function privyTokenVerifier(bridge: PrivyAuthBridge, logger?: Logger): OA
   };
 }
 
+/**
+ * Production verifier with an optional, disabled-by-default E2E bearer.
+ *
+ * The E2E bearer exists only so hosted QA can exercise `/mcp` write calls
+ * without a dashboard test account or manual OTP. It still resolves a real
+ * Privy user/wallet, and `runTool` restricts the token to a tiny testnet
+ * native transfer.
+ */
+export function mcpTokenVerifier(
+  bridge: PrivyAuthBridge,
+  config: Config,
+  logger?: Logger,
+): OAuthTokenVerifier {
+  const privy = privyTokenVerifier(bridge, logger);
+  return {
+    async verifyAccessToken(token: string): Promise<AuthInfo> {
+      if (config.e2eBearerToken && config.e2eUserId && safeEqual(token, config.e2eBearerToken)) {
+        if (config.defaultNetwork !== "testnet") {
+          throw new AuthRequiredError("E2E bearer auth is only allowed on testnet deployments.");
+        }
+        const resolved = await bridge.resolveUser(config.e2eUserId);
+        logger?.info("mcp e2e bearer ok", {
+          userId: resolved.userId,
+          wallet: resolved.walletAddress,
+        });
+        return {
+          token,
+          clientId: resolved.userId,
+          scopes: ["monad:read", "monad:write"],
+          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+          extra: {
+            userId: resolved.userId,
+            sessionId: "e2e-bearer",
+            walletAddress: resolved.walletAddress,
+            walletId: resolved.walletId,
+            email: resolved.email,
+            e2e: true,
+            e2eAllowedRecipient: config.e2eAllowedRecipient.toLowerCase(),
+            e2eMaxTransferWei: config.e2eMaxTransferWei,
+          },
+        };
+      }
+      return privy.verifyAccessToken(token);
+    },
+  };
+}
+
 export interface AuthExtra {
   userId: string;
   sessionId: string;
   walletAddress: `0x${string}` | null;
   walletId: string | null;
   email?: string;
+  e2e?: boolean;
+  e2eAllowedRecipient?: `0x${string}`;
+  e2eMaxTransferWei?: string;
 }
 
 export function readAuthExtra(authInfo: AuthInfo | undefined): AuthExtra | null {
@@ -86,5 +144,12 @@ export function readAuthExtra(authInfo: AuthInfo | undefined): AuthExtra | null 
     walletAddress: (extra.walletAddress as `0x${string}` | null) ?? null,
     walletId: (extra.walletId as string | null) ?? null,
     email: typeof extra.email === "string" ? extra.email : undefined,
+    e2e: extra.e2e === true,
+    e2eAllowedRecipient:
+      typeof extra.e2eAllowedRecipient === "string"
+        ? (extra.e2eAllowedRecipient as `0x${string}`)
+        : undefined,
+    e2eMaxTransferWei:
+      typeof extra.e2eMaxTransferWei === "string" ? extra.e2eMaxTransferWei : undefined,
   };
 }
