@@ -7,6 +7,7 @@ import { MemoryGrantStore } from "../../src/grants/memory.js";
 import { createLogger } from "../../src/logger.js";
 import { NoopNotifier } from "../../src/notifications/webhook.js";
 import { MemoryRequestStore } from "../../src/store/memory.js";
+import { MemoryUsageStore } from "../../src/usage/memory.js";
 import type { ClientRegistry } from "../../src/viem/clients.js";
 
 export interface TestContextOptions {
@@ -44,6 +45,7 @@ export function makeTestContext(options: TestContextOptions = {}): ServerContext
     clients,
     store: new MemoryRequestStore(),
     grants: new MemoryGrantStore(),
+    usage: new MemoryUsageStore(),
     auth,
     logger: createLogger("error"),
     notifier: new NoopNotifier(),

@@ -280,5 +280,34 @@
     <li>First confirmed mainnet-shape tx on Monad testnet: <code>0xa4de4e6f038ad49cd50813d848e002e4db20bcb9374d857fb0610764d665518b</code> (block 34,682,400)</li>
     <li>README + ARCHITECTURE + implementation notes (this file)</li>
   </ul>
+
+  <h2>12. Public usage stats (<code>/stats</code>)</h2>
+  <p>A self-owned, privacy-safe usage dashboard for the hosted server. <code>GET /stats</code> serves a self-contained HTML page; <code>GET /stats.json</code> serves the aggregate summary it renders.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Instrument the single chokepoint, not each tool</h3>
+  <p>Every core <em>and</em> plugin tool call already funnels through <code>runTool</code> (<code>src/tools/registry.ts</code>) — plugins register via <code>registerTool</code>, which wraps it. Recording one event in <code>runTool</code>'s <code>finally</code> covers all 46 tools with zero per-tool changes, and captures the outcome on both the success and error paths.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Privacy-safe by construction</h3>
+  <p>We record only five low-cardinality dimensions: tool name, <code>read</code>/<code>write</code> kind, network, signed-in vs. anonymous, and ok/error. No user id, wallet address, arguments, or amounts ever touch the counter — so the page can be fully public with nothing to leak. Counts are pre-aggregated per UTC day (<code>tool_usage_daily</code>, PK over the dimension tuple), keeping rows bounded.</p>
+
+  <h3><span class="tag tag-decision">decision</span>Fire-and-forget recording</h3>
+  <p>The <code>recordUsage</code> helper never awaits on the hot path and swallows errors (logged at debug). A failed counter write must never block or fail a tool call. For the in-memory store the bucket mutation is synchronous, so tests observe it deterministically without awaiting.</p>
+
+  <h3><span class="tag tag-decision">decision</span>One aggregator, two backends</h3>
+  <p><code>MemoryUsageStore</code> and <code>PgUsageStore</code> both keep daily buckets and feed the same pure <code>aggregateUsage()</code> reducer, so they produce byte-identical summaries. The UTC day is computed in app code (not SQL <code>CURRENT_DATE</code>) so Postgres buckets match memory regardless of DB timezone. Lifetime totals/byTool/byNetwork come from all rows; the <code>daily</code> series is the trailing N-day window with gaps zero-filled for a continuous chart.</p>
+
+  <h3><span class="tag tag-tradeoff">tradeoff</span>Summary folds all rows in JS rather than SQL aggregates</h3>
+  <p>The Postgres <code>summary()</code> selects every daily row and reduces in JS (shared with memory). Row volume is small (one row per day × tiny dimension tuple) and <code>/stats.json</code> is cached 60s, so this is fine at launch scale and keeps both stores identical. If usage grows large, swap the lifetime totals to SQL <code>GROUP BY</code> aggregates behind the same interface. Noted, not done.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span>Page ships compiled in <code>dist</code>, not from <code>site/</code></h3>
+  <p>The Dockerfile copies <code>dist</code> + <code>migrations</code> but not <code>site/</code>, and the Express app doesn't serve static files. So the dashboard lives in <code>src/stats/page.ts</code> as a template-string module (inline CSS matching the landing palette, vanilla JS, inline-SVG charts — no external assets or libraries). It renders on the MCP origin with no extra deploy wiring. The landing site gets a "Stats" nav link pointing at <code>monad-mcp.fly.dev/stats</code>.</p>
+
+  <h3><span class="tag tag-deviation">deviation</span><code>runMigrations</code> is now called on HTTP boot</h3>
+  <p>It existed but nothing invoked it, and it only applied <code>001_init.sql</code>. It now applies every <code>migrations/*.sql</code> in filename order (idempotent) and runs at the start of <code>server-http.ts main()</code>. It is a no-op for the current <code>memory</code> default, so existing deploys are unaffected; a Postgres deploy becomes self-provisioning, including the new <code>tool_usage_daily</code> table.</p>
+
+  <h3><span class="tag tag-open">open question</span>Durability needs Postgres</h3>
+  <p>Under the default <code>memory</code> backend the counters reset on restart, and Fly auto-stops idle machines — so the live numbers will look sparse until the deploy is switched to <code>STORE_BACKEND=postgres</code> with a <code>DATABASE_URL</code>. Provisioning a Fly Postgres and setting those secrets is the one operational step to make stats durable.</p>
+
+  <p class="meta">Added on branch <code>mcp-usage-stats-page</code>. New: <code>src/usage/{types,aggregate,memory,postgres,record}.ts</code>, <code>src/stats/{page,routes}.ts</code>, <code>migrations/002_tool_usage.sql</code>; instrumented <code>runTool</code>; wired <code>usage</code> into <code>ServerContext</code> / <code>selectStores</code> / test helper; <code>/stats</code> + <code>/stats.json</code> mounted in <code>server-http.ts</code>. 25 new tests (aggregate, memory store, router, runTool recording); full suite 199 passing, lint + build clean.</p>
 </body>
 </html>

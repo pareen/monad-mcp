@@ -77,6 +77,44 @@ describe("runTool", () => {
     expect(res.isError).toBe(true);
   });
 
+  test("records a successful anonymous read call", async () => {
+    const ctx = makeTestContext();
+    await runTool(echoTool, { msg: "hi" }, ctx);
+    const s = await ctx.usage.summary();
+    expect(s.totals.calls).toBe(1);
+    expect(s.totals.ok).toBe(1);
+    expect(s.totals.reads).toBe(1);
+    expect(s.totals.anonymous).toBe(1);
+    expect(s.byTool[0]).toMatchObject({ tool: "echo", kind: "read", calls: 1, ok: 1 });
+  });
+
+  test("records a failed call as an error (write without auth)", async () => {
+    const ctx = makeTestContext();
+    await runTool(writeTool, { x: "y" }, ctx);
+    const s = await ctx.usage.summary();
+    expect(s.totals.calls).toBe(1);
+    expect(s.totals.errors).toBe(1);
+    expect(s.totals.writes).toBe(1);
+    expect(s.totals.successRate).toBe(0);
+  });
+
+  test("records an authed write as authed + ok", async () => {
+    const ctx = makeTestContext();
+    await runTool(writeTool, { x: "y" }, ctx, authedInfo);
+    const s = await ctx.usage.summary();
+    expect(s.totals.authed).toBe(1);
+    expect(s.totals.ok).toBe(1);
+    expect(s.totals.writes).toBe(1);
+  });
+
+  test("records even when input validation fails", async () => {
+    const ctx = makeTestContext();
+    await runTool(echoTool, { msg: 123 }, ctx);
+    const s = await ctx.usage.summary();
+    expect(s.totals.calls).toBe(1);
+    expect(s.totals.errors).toBe(1);
+  });
+
   test("network defaults to server config when arg is omitted", async () => {
     const seen: Array<string> = [];
     const sniffShape = { network: z.enum(["mainnet", "testnet"]).optional() };

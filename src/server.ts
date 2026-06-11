@@ -36,7 +36,7 @@ export function buildServerContext(config: Config = loadConfig()): ServerContext
     ? new WebhookNotifier(config.notificationWebhookUrl, logger.child({ component: "notifier" }))
     : new NoopNotifier();
 
-  const { requestStore, grantStore } = selectStores(config, logger);
+  const { requestStore, grantStore, usageStore } = selectStores(config, logger);
   const store = new NotifyingRequestStore(requestStore, notifier, config);
   logger.info("stores configured", { backend: config.storeBackend });
 
@@ -45,6 +45,7 @@ export function buildServerContext(config: Config = loadConfig()): ServerContext
     clients: createClientRegistry(config),
     store,
     grants: grantStore,
+    usage: usageStore,
     auth: PrivyAuthBridge.fromConfig(config),
     logger,
     notifier,
