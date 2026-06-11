@@ -5,6 +5,7 @@ import type { GrantStore } from "./grants/types.js";
 import type { Logger } from "./logger.js";
 import type { Notifier } from "./notifications/types.js";
 import type { RequestStore } from "./store/types.js";
+import type { UsageStore } from "./usage/types.js";
 import type { ClientRegistry } from "./viem/clients.js";
 
 /**
@@ -15,6 +16,8 @@ export interface ServerContext {
   clients: ClientRegistry;
   store: RequestStore;
   grants: GrantStore;
+  /** Aggregate tool-usage counters that back the public /stats page. */
+  usage: UsageStore;
   auth: PrivyAuthBridge | null;
   logger: Logger;
   notifier: Notifier;

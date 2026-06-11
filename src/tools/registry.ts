@@ -5,6 +5,7 @@ import { readAuthExtra } from "../auth/verifier.js";
 import { type NetworkName, chainFor } from "../chains/monad.js";
 import type { ServerContext, ToolContext } from "../context.js";
 import { AuthRequiredError, WalletNotFoundError, isMonadMcpError } from "../errors.js";
+import { recordUsage } from "../usage/record.js";
 
 export type ToolKind = "read" | "write";
 
@@ -60,17 +61,21 @@ export async function runTool<Shape extends ZodRawShape>(
   server: ServerContext,
   authInfo?: AuthInfo,
 ): Promise<ToolCallbackResult> {
+  const auth = readAuthExtra(authInfo);
+  // Default the network before validation so a parse failure still records
+  // against a network bucket; refined once args parse.
+  let network: NetworkName = server.config.defaultNetwork;
+  let ok = false;
   try {
     // Validate input through the zod schema so unknown args are rejected.
     const { z } = await import("zod");
     const parsed = z.object(def.inputSchema).parse(rawArgs ?? {}) as z.infer<z.ZodObject<Shape>>;
 
-    const network =
+    network =
       def.resolveNetwork?.(parsed) ??
       (parsed as { network?: NetworkName }).network ??
       server.config.defaultNetwork;
 
-    const auth = readAuthExtra(authInfo);
     if (def.kind === "write" && !auth) {
       throw new AuthRequiredError(
         "This tool requires a connected Monad wallet — sign in via Privy and retry.",
@@ -88,6 +93,7 @@ export async function runTool<Shape extends ZodRawShape>(
     };
 
     const result = await def.handler(parsed, ctx);
+    ok = true;
 
     return {
       content: [{ type: "text", text: result.text }],
@@ -99,6 +105,10 @@ export async function runTool<Shape extends ZodRawShape>(
       error: err instanceof Error ? err.message : String(err),
     });
     return formatErrorResult(err);
+  } finally {
+    // Privacy-safe aggregate counter for the public /stats page. Fire-and-forget:
+    // never blocks the response, never throws.
+    recordUsage(server, { tool: def.name, kind: def.kind, network, authed: Boolean(auth), ok });
   }
 }
 

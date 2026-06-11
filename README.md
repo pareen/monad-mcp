@@ -203,6 +203,19 @@ Write tools follow the **stored request pattern**:
 
 The agent never touches a private key. Privy's TEE-backed key custody + wallet policies are the security envelope.
 
+## Usage stats
+
+The server keeps **privacy-safe, aggregate** counters of tool usage and serves a public dashboard:
+
+- **`GET /stats`** — a self-contained HTML page (charts, top tools, read/write & network splits, daily activity).
+- **`GET /stats.json?days=30`** — the underlying summary as JSON (`days` clamps to 1–365).
+
+Every tool call — core *and* plugin — flows through one chokepoint (`runTool` in `src/tools/registry.ts`), which records the tool name, `read`/`write` kind, network, signed-in vs. anonymous, and success/failure. **Nothing else is captured** — no wallet addresses, identities, arguments, or amounts. Counters are bucketed per UTC day (`tool_usage_daily`), so cardinality stays bounded.
+
+Recording is fire-and-forget: a failed counter write never blocks or fails a tool call.
+
+Durability follows the persistence backend (see `STORE_BACKEND`): `postgres` survives restarts; `memory` resets on restart. On Postgres the schema is migrated automatically on HTTP boot.
+
 ## Adding your own skill plugin
 
 Plugins live in `src/plugins/<id>/` and export a `SkillPlugin`:

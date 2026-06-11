@@ -10,10 +10,18 @@ import { authorizationServerMetadata, protectedResourceMetadata } from "./auth/o
 import { optionalBearerAuth } from "./auth/optional-bearer.js";
 import { privyTokenVerifier } from "./auth/verifier.js";
 import { buildMcpServer, buildServerContext } from "./server.js";
+import { statsRouter } from "./stats/routes.js";
+import { runMigrations } from "./store/select.js";
 
 async function main() {
   const context = buildServerContext();
   const { config, logger, auth } = context;
+
+  // Apply DB migrations on boot when running on Postgres (no-op for the memory
+  // backend). Keeps a fresh deploy self-provisioning — including the
+  // tool_usage_daily table that backs /stats.
+  await runMigrations(config);
+
   const app = express();
   app.use(express.json({ limit: "1mb" }));
 
@@ -54,6 +62,9 @@ async function main() {
   // Approval flow routes (page + API). The page is public, /submit is
   // bearer-authed at the handler level.
   app.use(approvalRouter(context));
+
+  // Public usage dashboard: GET /stats (HTML) + GET /stats.json (data).
+  app.use(statsRouter(context));
 
   const resourceMetadataUrl = `${config.publicBaseUrl}/.well-known/oauth-protected-resource/mcp`;
 
