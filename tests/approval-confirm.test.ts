@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import express from "express";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { approvalRouter } from "../src/approval/routes.js";
+import { localWalletUserId } from "../src/auth/local-wallet.js";
 import type { ServerContext } from "../src/context.js";
 import type { StoredRequest } from "../src/store/types.js";
 import { makeTestContext } from "./helpers/context.js";
@@ -12,6 +13,7 @@ const USER = "did:privy:user1";
 const WALLET = "0x1111111111111111111111111111111111111111" as `0x${string}`;
 const TO = "0x771cda7e3786979d8fded8d4c22cd42f7b576dd4" as `0x${string}`;
 const HASH = `0x${"a".repeat(64)}` as `0x${string}`;
+const LOCAL_WALLET = "0x2222222222222222222222222222222222222222" as const;
 
 /** A viem-shaped transaction matching the request below. */
 function chainTx(over: Record<string, unknown> = {}) {
@@ -55,11 +57,20 @@ describe("POST /api/stored-requests/:id/confirm", () => {
       config: { approvalSecret: SECRET, ...over.config },
       publicClient: { getTransaction: vi.fn(async () => chainTx()), ...over.publicClient },
       auth: over.auth,
+      localWallet: over.localWallet,
     });
   }
 
   function post(id: string, body: unknown, headers: Record<string, string> = {}) {
     return fetch(`${base}/api/stored-requests/${id}/confirm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+  }
+
+  function submit(id: string, body: unknown = {}, headers: Record<string, string> = {}) {
+    return fetch(`${base}/api/stored-requests/${id}/submit`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers },
       body: JSON.stringify(body),
@@ -82,6 +93,39 @@ describe("POST /api/stored-requests/:id/confirm", () => {
     const res = await post(req.id, { tx_hash: HASH }, { "X-Approval-Token": token });
     expect(res.status).toBe(200);
     expect((await res.json()).tx_hash).toBe(HASH);
+    expect((await ctx.store.get(req.id))?.status).toBe("approved");
+  });
+
+  test("serves and submits a local-wallet approval without Privy", async () => {
+    const sendTransaction = vi.fn(async () => HASH);
+    await start(
+      ctxWith({
+        auth: null,
+        localWallet: {
+          userId: localWalletUserId(LOCAL_WALLET),
+          address: LOCAL_WALLET,
+          sendTransaction,
+        },
+      }),
+    );
+    const req = await makeRequest(ctx, {
+      userId: localWalletUserId(LOCAL_WALLET),
+      walletAddress: LOCAL_WALLET,
+    });
+    const { mintApprovalToken } = await import("../src/approval/token.js");
+    const token = mintApprovalToken(
+      { requestId: req.id, userId: req.userId, expiresAt: req.expiresAt },
+      SECRET,
+    );
+
+    const page = await fetch(`${base}/approve/${req.id}?t=${encodeURIComponent(token)}`);
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain("Approve transaction");
+
+    const res = await submit(req.id, {}, { "X-Approval-Token": token });
+    expect(res.status).toBe(200);
+    expect((await res.json()).tx_hash).toBe(HASH);
+    expect(sendTransaction).toHaveBeenCalledWith(req.network, req.call);
     expect((await ctx.store.get(req.id))?.status).toBe("approved");
   });
 

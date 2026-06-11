@@ -101,6 +101,19 @@ PORT=8787
 MONAD_DEFAULT_NETWORK=testnet
 ```
 
+For local testnet E2E without Privy, use a dedicated funded test wallet instead:
+
+```bash
+MONAD_MCP_LOCAL_PRIVATE_KEY=0x...   # funded Monad testnet key only
+PUBLIC_BASE_URL=http://localhost:8787
+PORT=8787
+MONAD_DEFAULT_NETWORK=testnet
+```
+
+With `MONAD_MCP_LOCAL_PRIVATE_KEY` set, write tools still return approval URLs.
+Opening the URL shows the transaction, and clicking approve submits it with that
+local test wallet. Do not use a production or mainnet key for this mode.
+
 For the Uniswap plugin, supply contract addresses (verify against the canonical Uniswap deployment for Monad before using):
 
 ```bash

@@ -1,7 +1,8 @@
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ZodRawShape, z } from "zod";
-import { readAuthExtra } from "../auth/verifier.js";
+import { localWalletUserId } from "../auth/local-wallet.js";
+import { type AuthExtra, readAuthExtra } from "../auth/verifier.js";
 import { type NetworkName, chainFor } from "../chains/monad.js";
 import type { ServerContext, ToolContext } from "../context.js";
 import { AuthRequiredError, WalletNotFoundError, isMonadMcpError } from "../errors.js";
@@ -31,6 +32,16 @@ export interface ToolCallbackResult {
   content: Array<{ type: "text"; text: string }>;
   structuredContent?: Record<string, unknown>;
   isError?: boolean;
+}
+
+function configuredLocalAuth(server: ServerContext): AuthExtra | null {
+  if (!server.localWallet || server.auth) return null;
+  return {
+    userId: localWalletUserId(server.localWallet.address),
+    sessionId: "local-wallet",
+    walletAddress: server.localWallet.address,
+    walletId: "local-wallet",
+  };
 }
 
 function formatErrorResult(err: unknown): ToolCallbackResult {
@@ -70,7 +81,7 @@ export async function runTool<Shape extends ZodRawShape>(
       (parsed as { network?: NetworkName }).network ??
       server.config.defaultNetwork;
 
-    const auth = readAuthExtra(authInfo);
+    const auth = readAuthExtra(authInfo) ?? configuredLocalAuth(server);
     if (def.kind === "write" && !auth) {
       throw new AuthRequiredError(
         "This tool requires a connected Monad wallet — sign in via Privy and retry.",
