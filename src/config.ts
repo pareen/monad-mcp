@@ -14,10 +14,6 @@ const ConfigSchema = z.object({
   storeBackend: z.enum(["memory", "postgres"]).default("memory"),
   databaseUrl: z.string().optional(),
   approvalSecret: z.string().min(32, "approval secret must be ≥32 chars").optional(),
-  localPrivateKey: z
-    .string()
-    .regex(/^0x[0-9a-fA-F]{64}$/, "local private key must be 0x + 64 hex chars")
-    .optional(),
   // When Privy is configured, /mcp gates WRITE tools behind a bearer token but
   // leaves READ tools public by default. Set MONAD_MCP_REQUIRE_AUTH=true to
   // require a token for every call (the stricter pre-split behavior).
@@ -53,7 +49,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     storeBackend: env.STORE_BACKEND,
     databaseUrl: env.DATABASE_URL || undefined,
     approvalSecret: env.MONAD_MCP_APPROVAL_SECRET || undefined,
-    localPrivateKey: env.MONAD_MCP_LOCAL_PRIVATE_KEY || undefined,
     requireAuth: envFlag(env.MONAD_MCP_REQUIRE_AUTH),
   });
 }

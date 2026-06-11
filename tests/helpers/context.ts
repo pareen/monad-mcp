@@ -1,6 +1,5 @@
 import type { PublicClient } from "viem";
 import { vi } from "vitest";
-import type { LocalWallet } from "../../src/auth/local-wallet.js";
 import type { PrivyAuthBridge, ResolvedUser } from "../../src/auth/privy.js";
 import { type Config, loadConfig } from "../../src/config.js";
 import type { ServerContext } from "../../src/context.js";
@@ -14,7 +13,6 @@ export interface TestContextOptions {
   config?: Partial<Config>;
   publicClient?: Partial<PublicClient>;
   auth?: Partial<PrivyAuthBridge> | null;
-  localWallet?: Partial<LocalWallet> | null;
 }
 
 export function makeTestContext(options: TestContextOptions = {}): ServerContext {
@@ -40,12 +38,6 @@ export function makeTestContext(options: TestContextOptions = {}): ServerContext
 
   const auth =
     options.auth === null ? null : options.auth ? (options.auth as PrivyAuthBridge) : null;
-  const localWallet =
-    options.localWallet === null
-      ? null
-      : options.localWallet
-        ? (options.localWallet as LocalWallet)
-        : null;
 
   return {
     config,
@@ -53,7 +45,6 @@ export function makeTestContext(options: TestContextOptions = {}): ServerContext
     store: new MemoryRequestStore(),
     grants: new MemoryGrantStore(),
     auth,
-    localWallet,
     logger: createLogger("error"),
     notifier: new NoopNotifier(),
   };

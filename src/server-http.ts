@@ -24,11 +24,10 @@ function escapeHtml(value: string): string {
 }
 
 function renderHomePage(context: ServerContext): string {
-  const { config, auth, localWallet } = context;
+  const { config, auth } = context;
   const baseUrl = escapeHtml(config.publicBaseUrl);
   const defaultNetwork = escapeHtml(config.defaultNetwork);
   const privyStatus = auth ? "enabled" : "not configured";
-  const walletStatus = localWallet ? `local wallet ${localWallet.address}` : privyStatus;
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -140,8 +139,8 @@ function renderHomePage(context: ServerContext): string {
         <dd>${baseUrl}/mcp</dd>
         <dt>Network</dt>
         <dd>${defaultNetwork}</dd>
-        <dt>Wallet auth</dt>
-        <dd>${escapeHtml(walletStatus)}</dd>
+        <dt>Privy</dt>
+        <dd>${privyStatus}</dd>
       </dl>
       <nav aria-label="Server links">
         <a href="/health">Health</a>
@@ -152,7 +151,7 @@ function renderHomePage(context: ServerContext): string {
 }
 
 export function createHttpApp(context: ServerContext) {
-  const { config, logger, auth, localWallet } = context;
+  const { config, logger, auth } = context;
   const app = express();
   app.use(express.json({ limit: "1mb" }));
 
@@ -263,17 +262,11 @@ export function createHttpApp(context: ServerContext) {
           "Set MONAD_MCP_REQUIRE_AUTH=true to gate reads too.",
       );
     }
-  } else if (localWallet) {
-    logger.warn(
-      "MCP /mcp reads are public; write tools use the configured local private-key wallet. " +
-        "Only use MONAD_MCP_LOCAL_PRIVATE_KEY for local/dev testnet E2E.",
-      { wallet: localWallet.address },
-    );
-    app.post("/mcp", handleMcpPost);
   } else {
     logger.warn(
-      "MCP /mcp reads are public, but write tools require Privy or MONAD_MCP_LOCAL_PRIVATE_KEY. " +
-        "Set PRIVY_APP_ID/PRIVY_APP_SECRET for browser wallet auth, or a local private key for dev E2E.",
+      "MCP /mcp endpoint is fully open (no Privy auth configured). " +
+        "Write tools run without a wallet check. " +
+        "Set PRIVY_APP_ID and PRIVY_APP_SECRET to require a bearer token for writes.",
     );
     app.post("/mcp", handleMcpPost);
   }

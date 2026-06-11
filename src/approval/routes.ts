@@ -80,12 +80,6 @@ async function authorizeFor(ctx: ServerContext, req: Request, id: string): Promi
     if (!ok) throw new AuthRequiredError("Invalid or expired approval token");
     return stored.userId;
   }
-  if (ctx.localWallet) {
-    const stored = await ctx.store.get(id);
-    if (stored?.userId === ctx.localWallet.userId && !ctx.config.approvalSecret) {
-      return stored.userId;
-    }
-  }
   if (bearer) {
     if (!ctx.auth) throw new Error("Privy is not configured on this server.");
     const verified = await ctx.auth.verifyAccessToken(bearer);
@@ -139,10 +133,7 @@ function approvalPage(ctx: ServerContext): RequestHandler {
       res.status(404).send("Request not found");
       return;
     }
-    const isLocalWalletRequest = Boolean(
-      ctx.localWallet && stored.userId === ctx.localWallet.userId,
-    );
-    if (!ctx.config.privyAppId && !isLocalWalletRequest) {
+    if (!ctx.config.privyAppId) {
       res.status(500).send("Server not configured — PRIVY_APP_ID is unset.");
       return;
     }
@@ -154,13 +145,12 @@ function approvalPage(ctx: ServerContext): RequestHandler {
     // (real transfers/contract calls) signs client-side with the user's own
     // wallet, which works for any wallet the user controls (no server signer).
     const pc = stored.pluginContext as { kind?: string } | undefined;
-    const signingMode: "client" | "server" =
-      isLocalWalletRequest || pc?.kind === "grant_activation" ? "server" : "client";
+    const signingMode: "client" | "server" = pc?.kind === "grant_activation" ? "server" : "client";
     res.set("Content-Type", "text/html; charset=utf-8");
     res.send(
       renderApprovalPage({
         request: stored,
-        privyAppId: ctx.config.privyAppId ?? "",
+        privyAppId: ctx.config.privyAppId,
         chainId: chainIdFor(stored.network),
         publicBaseUrl: ctx.config.publicBaseUrl,
         rpcUrl,
@@ -201,6 +191,7 @@ function getStoredRequest(ctx: ServerContext): RequestHandler {
 function submitStoredRequest(ctx: ServerContext): RequestHandler {
   return async (req: Request, res: Response): Promise<void> => {
     try {
+      if (!ctx.auth) throw new Error("Privy is not configured on this server.");
       const id = asId(req.params.id);
       const userId = await authorizeFor(ctx, req, id);
       const stored = await ctx.store.get(id);
@@ -226,14 +217,11 @@ function submitStoredRequest(ctx: ServerContext): RequestHandler {
       if (pc?.kind === "grant_activation" && typeof pc.grant_id === "string") {
         const grant = await ctx.grants.activate(pc.grant_id);
         await ctx.store.markApproved(id, "0x0" as `0x${string}`);
-        let policyId: string | null = null;
-        if (ctx.auth) {
-          const resolved = await ctx.auth.resolveUser(userId);
-          const { PolicyMirror } = await import("../auth/policy-mirror.js");
-          const mirror = new PolicyMirror(ctx.auth, ctx.logger);
-          policyId = await mirror.mirror(grant, resolved.walletId);
-          if (policyId) await ctx.grants.setPrivyPolicyId(grant.id, policyId);
-        }
+        const resolved = await ctx.auth.resolveUser(userId);
+        const { PolicyMirror } = await import("../auth/policy-mirror.js");
+        const mirror = new PolicyMirror(ctx.auth, ctx.logger);
+        const policyId = await mirror.mirror(grant, resolved.walletId);
+        if (policyId) await ctx.grants.setPrivyPolicyId(grant.id, policyId);
         ctx.logger.info("grant activated", {
           grant_id: grant.id,
           user_id: userId,
@@ -249,19 +237,6 @@ function submitStoredRequest(ctx: ServerContext): RequestHandler {
         return;
       }
 
-      if (ctx.localWallet && stored.userId === ctx.localWallet.userId) {
-        const txHash = await ctx.localWallet.sendTransaction(stored.network, stored.call);
-        const updated = await ctx.store.markApproved(id, txHash);
-        ctx.logger.info("request approved (local wallet)", {
-          request_id: id,
-          tx_hash: txHash,
-          user_id: userId,
-        });
-        res.json({ tx_hash: updated.txHash, status: updated.status });
-        return;
-      }
-
-      if (!ctx.auth) throw new Error("Privy is not configured on this server.");
       const resolved = await ctx.auth.resolveUser(userId);
       const valueHex = toHex(BigInt(stored.call.value));
 

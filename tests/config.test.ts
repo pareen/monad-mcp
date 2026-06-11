@@ -24,16 +24,6 @@ describe("config", () => {
     ).toBe(true);
   });
 
-  test("parses an explicit local wallet private key", () => {
-    const key = `0x${"1".repeat(64)}`;
-    expect(
-      loadConfig({ MONAD_MCP_LOCAL_PRIVATE_KEY: key } as NodeJS.ProcessEnv).localPrivateKey,
-    ).toBe(key);
-    expect(() =>
-      loadConfig({ MONAD_MCP_LOCAL_PRIVATE_KEY: "not-a-key" } as NodeJS.ProcessEnv),
-    ).toThrow();
-  });
-
   test("rejects invalid log level", () => {
     expect(() => loadConfig({ LOG_LEVEL: "lol" } as NodeJS.ProcessEnv)).toThrow();
   });

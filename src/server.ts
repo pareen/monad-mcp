@@ -1,5 +1,4 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { localWalletFromConfig } from "./auth/local-wallet.js";
 import { PrivyAuthBridge } from "./auth/privy.js";
 import { type Config, loadConfig, privyEnabled } from "./config.js";
 import type { ServerContext } from "./context.js";
@@ -26,20 +25,11 @@ export interface BuiltServer {
 export function buildServerContext(config: Config = loadConfig()): ServerContext {
   const logger = createLogger(config.logLevel, { service: "monad-mcp" });
 
-  const auth = PrivyAuthBridge.fromConfig(config);
-  const localWallet = localWalletFromConfig(config);
-
-  if (!auth && !localWallet) {
+  if (!privyEnabled(config)) {
     logger.warn(
       "Privy is not configured (PRIVY_APP_ID / PRIVY_APP_SECRET unset). " +
-        "Write tools will fail until you connect a Privy app or configure MONAD_MCP_LOCAL_PRIVATE_KEY.",
+        "Write tools will fail until you connect a Privy app.",
     );
-  }
-  if (localWallet) {
-    logger.warn("local private-key wallet enabled for write tools", {
-      wallet: localWallet.address,
-      default_network: config.defaultNetwork,
-    });
   }
 
   const notifier = config.notificationWebhookUrl
@@ -55,8 +45,7 @@ export function buildServerContext(config: Config = loadConfig()): ServerContext
     clients: createClientRegistry(config),
     store,
     grants: grantStore,
-    auth,
-    localWallet,
+    auth: PrivyAuthBridge.fromConfig(config),
     logger,
     notifier,
   };
@@ -79,10 +68,9 @@ export function buildMcpServer(context: ServerContext): McpServer {
     {
       instructions:
         "MCP server for the Monad blockchain. Read tools (balances, history) work without auth. " +
-        "Write tools (transfer, swap, stake) require either Privy sign-in or an explicitly configured " +
-        "local private-key wallet. They return an approval URL the user must open to confirm the " +
-        "transaction. After approval, poll the request with `poll_request` to retrieve the resulting " +
-        "tx hash.\n\n" +
+        "Write tools (transfer, swap, stake) require the user to be signed in via Privy and return an " +
+        "approval URL the user must open to confirm the transaction. After approval, poll the request " +
+        "with `poll_request` to retrieve the resulting tx hash.\n\n" +
         "Monad differs from Ethereum in ways that matter for agents: contracts can be up to 128 KB " +
         "(don't split them to fit Ethereum's 24 KB limit); you pay on gas_limit, not gas_used, so set " +
         "tight gas limits; `latest` reads are speculative and can change, so use the `finalized` tag " +

@@ -1,6 +1,5 @@
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { describe, expect, test, vi } from "vitest";
-import { localWalletUserId } from "../../src/auth/local-wallet.js";
 import { runTool } from "../../src/tools/registry.js";
 import { transferTool } from "../../src/tools/transfer.js";
 import { makeTestContext } from "../helpers/context.js";
@@ -16,8 +15,6 @@ const authedInfo: AuthInfo = {
     walletId: "wallet_1",
   },
 };
-
-const localWalletAddress = "0x2222222222222222222222222222222222222222" as const;
 
 describe("transfer tool", () => {
   test("native MON transfer stores a request with the right call payload", async () => {
@@ -133,29 +130,6 @@ describe("transfer tool", () => {
       ctx,
     );
     expect(res.isError).toBe(true);
-  });
-
-  test("uses a configured local wallet when no bearer auth is present", async () => {
-    const ctx = makeTestContext({
-      localWallet: {
-        userId: localWalletUserId(localWalletAddress),
-        address: localWalletAddress,
-        sendTransaction: vi.fn(),
-      },
-      publicClient: { estimateGas: vi.fn(async () => 21_000n) as never },
-    });
-    const res = await runTool(
-      transferTool,
-      { to: "0xabababababababababababababababababababab", amount: "0.25" },
-      ctx,
-    );
-
-    expect(res.isError).toBeFalsy();
-    const structured = res.structuredContent as { request_id: string; from: string };
-    expect(structured.from).toBe(localWalletAddress);
-    const stored = await ctx.store.get(structured.request_id);
-    expect(stored?.userId).toBe(localWalletUserId(localWalletAddress));
-    expect(stored?.walletAddress).toBe(localWalletAddress);
   });
 
   test("honours ttl_seconds when building the stored request", async () => {

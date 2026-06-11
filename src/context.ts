@@ -1,4 +1,3 @@
-import type { LocalWallet } from "./auth/local-wallet.js";
 import type { PrivyAuthBridge } from "./auth/privy.js";
 import type { NetworkName } from "./chains/monad.js";
 import type { Config } from "./config.js";
@@ -17,7 +16,6 @@ export interface ServerContext {
   store: RequestStore;
   grants: GrantStore;
   auth: PrivyAuthBridge | null;
-  localWallet: LocalWallet | null;
   logger: Logger;
   notifier: Notifier;
 }
