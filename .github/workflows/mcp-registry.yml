@@ -1,0 +1,36 @@
+name: Publish to MCP Registry
+
+# Lists the server in the official MCP Registry (registry.modelcontextprotocol.io)
+# under the io.github.pareen namespace, reading ./server.json. Auth is GitHub
+# OIDC — no secrets — which the registry trusts because this repo lives under the
+# `pareen` account that owns the namespace. The npm package referenced in
+# server.json must already be published with a matching `mcpName` field
+# (release.yml handles the npm publish on the version tag).
+#
+# Runs after a GitHub release is published, and on manual dispatch.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for GitHub OIDC
+
+jobs:
+  publish:
+    name: Publish server.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+
+      - name: Login (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
