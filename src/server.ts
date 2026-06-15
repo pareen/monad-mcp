@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { PrivyAuthBridge } from "./auth/privy.js";
 import { type Config, loadConfig, privyEnabled } from "./config.js";
@@ -11,7 +14,19 @@ import { selectStores } from "./store/select.js";
 import { registerCoreTools } from "./tools/index.js";
 import { createClientRegistry } from "./viem/clients.js";
 
-const VERSION = "0.1.0";
+function loadPackageVersion(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const pkg = JSON.parse(readFileSync(resolve(here, "../package.json"), "utf8")) as {
+      version?: unknown;
+    };
+    return typeof pkg.version === "string" ? pkg.version : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+export const VERSION = loadPackageVersion();
 
 export interface BuildServerOptions {
   config?: Config;

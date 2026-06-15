@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { randomBytes } from "node:crypto";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express, { type Request, type Response } from "express";
@@ -8,19 +10,159 @@ import { oauthRouter } from "./auth/oauth-routes.js";
 import { AuthCodeStore } from "./auth/oauth-store.js";
 import { authorizationServerMetadata, protectedResourceMetadata } from "./auth/oauth.js";
 import { optionalBearerAuth } from "./auth/optional-bearer.js";
-import { privyTokenVerifier } from "./auth/verifier.js";
-import { buildMcpServer, buildServerContext } from "./server.js";
+import { mcpTokenVerifier } from "./auth/verifier.js";
+import type { ServerContext } from "./context.js";
+import { VERSION, buildMcpServer, buildServerContext } from "./server.js";
 
-async function main() {
-  const context = buildServerContext();
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function renderHomePage(context: ServerContext): string {
+  const { config, auth } = context;
+  const baseUrl = escapeHtml(config.publicBaseUrl);
+  const defaultNetwork = escapeHtml(config.defaultNetwork);
+  const privyStatus = auth ? "enabled" : "not configured";
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>monad-mcp</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #f7f8fa;
+        color: #15171a;
+      }
+      main {
+        width: min(720px, calc(100vw - 32px));
+        padding: 32px;
+        border: 1px solid #d8dde5;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 20px 60px rgb(20 26 34 / 8%);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        line-height: 1.2;
+      }
+      p {
+        margin: 0 0 20px;
+        color: #4f5a68;
+        line-height: 1.55;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 10px 16px;
+        margin: 0 0 24px;
+      }
+      dt {
+        color: #687385;
+      }
+      dd {
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        overflow-wrap: anywhere;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      a {
+        color: #0d5bd7;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+      @media (max-width: 520px) {
+        main {
+          padding: 24px 16px;
+        }
+        h1 {
+          font-size: 24px;
+        }
+        dl {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+        dt {
+          margin-top: 8px;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #111418;
+          color: #eef2f7;
+        }
+        main {
+          background: #181d24;
+          border-color: #303844;
+          box-shadow: none;
+        }
+        p,
+        dt {
+          color: #aab4c3;
+        }
+        a {
+          color: #8ab4ff;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>monad-mcp</h1>
+      <p>HTTP MCP endpoint for Monad tools.</p>
+      <dl>
+        <dt>Endpoint</dt>
+        <dd>${baseUrl}/mcp</dd>
+        <dt>Network</dt>
+        <dd>${defaultNetwork}</dd>
+        <dt>Privy</dt>
+        <dd>${privyStatus}</dd>
+      </dl>
+      <nav aria-label="Server links">
+        <a href="/health">Health</a>
+      </nav>
+    </main>
+  </body>
+</html>`;
+}
+
+export function createHttpApp(context: ServerContext) {
   const { config, logger, auth } = context;
   const app = express();
   app.use(express.json({ limit: "1mb" }));
 
+  app.get("/", (_req: Request, res: Response) => {
+    res.type("html").send(renderHomePage(context));
+  });
+
   app.get("/health", (_req: Request, res: Response) => {
     res.json({
       ok: true,
-      version: "0.1.0",
+      version: VERSION,
       default_network: config.defaultNetwork,
       privy_enabled: Boolean(auth),
     });
@@ -102,7 +244,7 @@ async function main() {
   };
 
   if (auth) {
-    const verifier = privyTokenVerifier(auth, logger);
+    const verifier = mcpTokenVerifier(auth, config, logger);
     if (config.requireAuth) {
       // Strict mode: every call needs a valid bearer token (reads included).
       app.post("/mcp", requireBearerAuth({ verifier, resourceMetadataUrl }), handleMcpPost);
@@ -131,7 +273,13 @@ async function main() {
   app.get("/mcp", methodNotAllowed);
   app.delete("/mcp", methodNotAllowed);
 
-  app.listen(config.port, () => {
+  return app;
+}
+
+export function startHttpServer(context = buildServerContext()) {
+  const app = createHttpApp(context);
+  const { config, logger, auth } = context;
+  return app.listen(config.port, () => {
     logger.info("monad-mcp http server listening", {
       port: config.port,
       base_url: config.publicBaseUrl,
@@ -141,8 +289,16 @@ async function main() {
   });
 }
 
-main().catch((err) => {
-  // biome-ignore lint/suspicious/noConsole: top-level fatal
-  console.error("fatal:", err);
-  process.exit(1);
-});
+async function main() {
+  startHttpServer();
+}
+
+const isCliEntrypoint =
+  process.argv[1] !== undefined && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+
+if (isCliEntrypoint) {
+  main().catch((err) => {
+    console.error("fatal:", err);
+    process.exit(1);
+  });
+}

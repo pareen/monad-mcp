@@ -13,7 +13,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  // biome-ignore lint/suspicious/noConsole: top-level fatal
   console.error("fatal:", err);
   process.exit(1);
 });

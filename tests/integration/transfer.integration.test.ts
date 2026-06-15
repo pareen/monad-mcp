@@ -106,7 +106,6 @@ describeOrSkip("integration: end-to-end transfer on Monad testnet", () => {
     expect(receipt.status).toBe("success");
     expect(receipt.gasUsed).toBeGreaterThan(0n);
 
-    // biome-ignore lint/suspicious/noConsole: surface the artifact for humans reading CI output
     console.log(
       `[integration] mined ${txHash} in block ${receipt.blockNumber} ` +
         `(gas ${receipt.gasUsed}) — https://testnet.monadexplorer.com/tx/${txHash}`,
@@ -119,7 +118,6 @@ describeOrSkip("integration: end-to-end transfer on Monad testnet", () => {
     // Just confirm it's still reasonable — we don't pin an exact value because
     // gas fluctuates.
     expect(balance).toBeGreaterThan(0n);
-    // biome-ignore lint/suspicious/noConsole: surface for CI
     console.log(`[integration] remaining balance: ${formatEther(balance)} MON`);
   });
 });
